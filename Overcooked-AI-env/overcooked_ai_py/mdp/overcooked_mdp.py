@@ -5,7 +5,8 @@ from collections import defaultdict, Counter
 from overcooked_ai_py.utils import pos_distance, read_layout_dict, classproperty
 from overcooked_ai_py.mdp.actions import Action, Direction
 import random 
-from constants import * 
+from overcooked_ai_py.mdp.constants import *
+
 
 class Recipe:
     MAX_NUM_INGREDIENTS = 3

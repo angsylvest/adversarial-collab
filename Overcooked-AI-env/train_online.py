@@ -78,7 +78,7 @@ class Workspace(object):
         self.video_recorder = VideoRecorder(self.work_dir if cfg.save_video else None)
         self.step = 0
 
-        self.agents = self.env.overcooked.state.players
+        self.players = self.env.overcooked.state.players
 
     def evaluate(self):
         average_episode_reward = 0
