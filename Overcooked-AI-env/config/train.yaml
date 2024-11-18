@@ -21,7 +21,7 @@ common_reward: true
 ou_exploration_steps: ${num_train_steps}
 ou_init_scale: 0.3
 ou_final_scale: 0
-adversarial: False
+adversarial: Trues
 
 device: cpu 
 #cuda

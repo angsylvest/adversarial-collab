@@ -5,6 +5,7 @@ from collections import defaultdict, Counter
 from overcooked_ai_py.utils import pos_distance, read_layout_dict, classproperty
 from overcooked_ai_py.mdp.actions import Action, Direction
 import random 
+from constants import * 
 
 class Recipe:
     MAX_NUM_INGREDIENTS = 3
@@ -1200,7 +1201,7 @@ class OvercookedGridworld(object):
 
         # example of adversarial behavior 
         behave_adversarial = False 
-        if random.random() < 0.5:
+        if random.random() < advers_prob:
             behave_adversarial = True 
         
         pot_states = self.get_pot_states(new_state)
@@ -2321,13 +2322,14 @@ class OvercookedGridworld(object):
             orientation_idx = Direction.DIRECTION_TO_INDEX[player.orientation]
             all_features["p{}_orientation".format(i)] = np.eye(4)[orientation_idx]
 
-            # Add bayes features here 
-            all_features["p{}_alpha_lazy".format(i)] = [player.alpha_lazy]
-            all_features["p{}_beta_lazy".format(i)] = [player.beta_lazy]
-            all_features["p{}_uncert_lazy".format(i)] = [player.uncertainty_lazy]
-            all_features["p{}_alpha_adver".format(i)] = [player.alpha_adversary]
-            all_features["p{}_beta_adver".format(i)] = [player.beta_adversary]
-            all_features["p{}_uncert_adver".format(i)] = [player.uncertainty_adversary]
+            if include_trust: 
+                # Add bayes features here 
+                all_features["p{}_alpha_lazy".format(i)] = [player.alpha_lazy]
+                all_features["p{}_beta_lazy".format(i)] = [player.beta_lazy]
+                all_features["p{}_uncert_lazy".format(i)] = [player.uncertainty_lazy]
+                all_features["p{}_alpha_adver".format(i)] = [player.alpha_adversary]
+                all_features["p{}_beta_adver".format(i)] = [player.beta_adversary]
+                all_features["p{}_uncert_adver".format(i)] = [player.uncertainty_adversary]
 
             obj = player.held_object
 

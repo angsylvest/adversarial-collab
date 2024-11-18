@@ -23,7 +23,14 @@ COMMON_EVAL_FORMAT = [
 COMMON_PERF_FORMAT = [
     ('episode', 'E', 'int'),
     ('step', 'S', 'int'),
-    ('freq', 'F', 'int'),
+    ('alpha_adv', 'AA', 'float'),
+    ('beta_adv', 'BA', 'float'),
+    ('trust_adv', 'TA', 'float'),
+    ('uncert_adv', 'UA', 'float'),
+    ('alpha_laz', 'AL', 'float'),
+    ('beta_laz', 'BL', 'float'),
+    ('trust_laz', 'TL', 'float'),
+    ('uncert_laz', 'UL', 'float'),
 ]
 
 

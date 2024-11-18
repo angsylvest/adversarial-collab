@@ -78,6 +78,8 @@ class Workspace(object):
         self.video_recorder = VideoRecorder(self.work_dir if cfg.save_video else None)
         self.step = 0
 
+        self.agents = self.env.overcooked.state.players
+
     def evaluate(self):
         average_episode_reward = 0
 
@@ -155,7 +157,16 @@ class Workspace(object):
 
                 # angel: add custom logger info here 
                 self.logger.log('perf/episode', episode, self.step )
-                self.logger.log('perf/freq', 0, self.step)
+                self.logger.log('perf/alpha_adv', self.players[0].alpha_adversary, self.step)
+                self.logger.log('perf/beta_adv', self.players[0].beta_adversary, self.step)
+                self.logger.log('perf/trust_adv', self.players[0].trust_score_adversary, self.step)
+                self.logger.log('perf/uncert_adv', self.players[0].uncertainty_adversary, self.step)
+                
+                self.logger.log('perf/alpha_laz', self.players[0].alpha_lazy, self.step)
+                self.logger.log('perf/beta_laz', self.players[0].beta_lazy, self.step)
+                self.logger.log('perf/trust_laz', self.players[0].trust_score_lazy, self.step)
+                self.logger.log('perf/uncert_laz', self.players[0].uncertainty_lazy, self.step)
+
 
                 self.logger.dump(self.step)
 
