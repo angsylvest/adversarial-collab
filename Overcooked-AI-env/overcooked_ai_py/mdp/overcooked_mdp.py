@@ -1309,7 +1309,7 @@ class OvercookedGridworld(object):
                     return sparse_reward, shaped_reward 
                 
                 if not behave_lazy or player_idx == 0: 
-                    print('not lazy dish act')
+                    # print('not lazy dish act')
                     self.log_object_pickup(events_infos, new_state, "dish", pot_states, player_idx)
 
                     # Give shaped reward if pickup is useful

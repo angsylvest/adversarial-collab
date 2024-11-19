@@ -104,7 +104,7 @@ class MetersGroup(object):
                                               fieldnames=sorted(data.keys()),
                                               restval=0.0)
             self._csv_writer.writeheader()
-        print(f'csv writter being used: {self._csv_writer.fieldnames} vs data keys: {data.keys()}')
+        # print(f'csv writter being used: {self._csv_writer.fieldnames} vs data keys: {data.keys()}')
         self._csv_writer.writerow(data)
         self._csv_file.flush()
 
@@ -132,7 +132,7 @@ class MetersGroup(object):
             return
         if save:
             data = self._prime_meters()
-            print(f'data: {data}')
+            # print(f'data: {data}')
             data['step'] = step
             self._dump_to_csv(data)
             self._dump_to_console(data, prefix)
