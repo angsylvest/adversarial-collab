@@ -203,7 +203,7 @@ class OvercookedEnv(object):
     # BASIC ENV LOGIC #
     ###################
 
-    def step(self, joint_action, joint_agent_action_info=None, display_phi=False):
+    def step(self, joint_action, joint_agent_action_info=None, display_phi=False, info=None):
         """Performs a joint action, updating the environment state
         and providing a reward.
         
@@ -214,7 +214,7 @@ class OvercookedEnv(object):
         """
         assert not self.is_done()
         if joint_agent_action_info is None: joint_agent_action_info = [{}, {}]
-        next_state, mdp_infos = self.mdp.get_state_transition(self.state, joint_action, display_phi, self.mp)
+        next_state, mdp_infos = self.mdp.get_state_transition(self.state, joint_action, display_phi, self.mp, info)
 
         # Update game_stats 
         self._update_game_stats(mdp_infos)
@@ -227,6 +227,8 @@ class OvercookedEnv(object):
         if done: self._add_episode_info(env_info)
 
         timestep_sparse_reward = sum(mdp_infos["sparse_reward_by_agent"])
+        
+        new_state = self.state
         return (next_state, timestep_sparse_reward, done, env_info)
 
     def lossless_state_encoding_mdp(self, state):
@@ -252,6 +254,7 @@ class OvercookedEnv(object):
                                  Please note that, if you intend to use this arguments throughout the run,
                                  you need to have a "initial_info" dictionary with the same keys in the "env_params"
         """
+        
         if regen_mdp:
             self.mdp = self.mdp_generator_fn(outside_info)
             self._mlam = None
@@ -342,6 +345,8 @@ class OvercookedEnv(object):
             if display: print(self)
             if done: break
         successor_state = self.state
+        # angel: successor state should include details about other agents 
+
         self.reset(False)
         return successor_state, done
 

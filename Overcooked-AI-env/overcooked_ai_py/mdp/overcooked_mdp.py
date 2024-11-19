@@ -6,6 +6,7 @@ from overcooked_ai_py.utils import pos_distance, read_layout_dict, classproperty
 from overcooked_ai_py.mdp.actions import Action, Direction
 import random 
 from overcooked_ai_py.mdp.constants import *
+import math
 
 
 class Recipe:
@@ -540,8 +541,7 @@ class PlayerState(object):
         self.held_object = held_object
 
         # include trust metrics here in player state
-        self.interaction_history = {"adversarial": 0, "lazy": 0}
-        self.num_interactions = 0 
+        self.interaction_history = {"adv_alpha": 1, "adv_beta": 1, "lazy_alpha": 1, "lazy_beta": 1}
 
         self.alpha_adversary = 1  # Initial alpha (trust)
         self.beta_adversary = 1   # Initial beta (distrust)
@@ -561,16 +561,28 @@ class PlayerState(object):
     @property
     def pos_and_or(self):
         return (self.position, self.orientation)
+
+    def reset_bayes(self): 
+        self.alpha_lazy = 1  # Initial alpha (trust)
+        self.beta_lazy = 1   # Initial beta (distrust)        
+        self.alpha_adversary = 1  # Initial alpha (trust)
+        self.beta_adversary = 1   # Initial beta (distrust)
+
+    def update_agent_state(self): 
+        pass 
     
     def update_bayes(self, type, success=False):
-        self.num_interactions += 1
 
         if type == "adversarial":
-            self.interaction_history["adversarial"] += 1 
             self.update_adv_trust(success)
         else: 
-            self.interaction_history["lazy"] += 1
             self.update_lazy_trust(success)
+
+        self.interaction_history["adv_alpha"] = self.alpha_adversary
+        self.interaction_history["adv_beta"] = self.beta_adversary 
+        self.interaction_history["lazy_alpha"] = self.alpha_lazy 
+        self.interaction_history["lazy_beta"] = self.beta_lazy
+
 
 
     def calculate_uncertainty(self, alpha, beta):
@@ -584,13 +596,12 @@ class PlayerState(object):
         else:
             self.alpha_adversary += 1  # Non-adversarial interaction -> increase α
 
-        self.num_interactions += 1
-
         # Update the trust score (mean of Beta distribution)
         self.trust_score_adversary = self.alpha_adversary / (self.alpha_adversary + self.beta_adversary)
-
+        
         # Update uncertainty (variance of Beta distribution)
         self.uncertainty_adversary = self.calculate_uncertainty(self.alpha_adversary, self.beta_adversary)
+
 
     def update_lazy_trust(self, success=False):
         """ Update the trust score based on whether the interaction was adversarial or not. """
@@ -599,7 +610,6 @@ class PlayerState(object):
         else:
             self.alpha_lazy += 1  # Non-adversarial interaction -> increase α
 
-        self.num_interactions += 1
 
         # Update the trust score (mean of Beta distribution)
         self.trust_score_lazy = self.alpha_lazy / (self.alpha_lazy + self.beta_lazy)
@@ -633,7 +643,12 @@ class PlayerState(object):
 
     def deepcopy(self):
         new_obj = None if self.held_object is None else self.held_object.deepcopy()
-        return PlayerState(self.position, self.orientation, new_obj)
+        player_state = PlayerState(self.position, self.orientation, new_obj)
+        player_state.alpha_adversary = self.alpha_adversary
+        player_state.beta_adversary = self.beta_adversary
+        player_state.alpha_lazy = self.alpha_lazy
+        player_state.beta_lazy = self.beta_lazy
+        return player_state # PlayerState(self.position, self.orientation, new_obj)
 
     def __eq__(self, other):
         return isinstance(other, PlayerState) and \
@@ -1088,7 +1103,10 @@ class OvercookedGridworld(object):
 
     def get_standard_start_state(self):
         if self.start_state:
+            print('reset after execute, returning same start_state')
             return self.start_state
+        
+        print('from player pos start state')
         start_state = OvercookedState.from_player_positions(
             self.start_player_positions, bonus_orders=self.start_bonus_orders, all_orders=self.start_all_orders
         )
@@ -1144,7 +1162,7 @@ class OvercookedGridworld(object):
         # There is a finite horizon, handled by the environment.
         return False
 
-    def get_state_transition(self, state, joint_action, display_phi=False, motion_planner=None):
+    def get_state_transition(self, state, joint_action, display_phi=False, motion_planner=None, info=None):
         """Gets information about possible transitions for the action.
 
         Returns the next state, sparse reward and reward shaping.
@@ -1163,7 +1181,7 @@ class OvercookedGridworld(object):
         new_state = state.deepcopy()
 
         # Resolve interacts first
-        sparse_reward_by_agent, shaped_reward_by_agent = self.resolve_interacts(new_state, joint_action, events_infos)
+        sparse_reward_by_agent, shaped_reward_by_agent, player_states = self.resolve_interacts(new_state, joint_action, events_infos, info)
 
         assert new_state.player_positions == state.player_positions
         assert new_state.player_orientations == state.player_orientations
@@ -1174,12 +1192,21 @@ class OvercookedGridworld(object):
         # Finally, environment effects
         self.step_environment_effects(new_state)
 
+        # # angel: update agent info here 
+        # for i in range(len(player_states)):
+        #     new_state.players[i].alpha_lazy = player_states[i].alpha_lazy
+        #     new_state.players[i].beta_lazy = player_states[i].beta_lazy
+        #     new_state.players[i].alpha_adversary = player_states[i].alpha_adversary
+        #     new_state.players[i].beta_adversary = player_states[i].beta_adversary
+
+        # print(f'curr info about players: {new_state.players[0].alpha_lazy, new_state.players[0].beta_lazy, new_state.players[0].alpha_adversary, new_state.players[0].beta_adversary}')
         # Additional dense reward logic
         # shaped_reward += self.calculate_distance_based_shaped_reward(state, new_state)
         infos = {
             "event_infos": events_infos,
             "sparse_reward_by_agent": sparse_reward_by_agent,
             "shaped_reward_by_agent": shaped_reward_by_agent,
+            "player_states": player_states
         }
         if display_phi:
             assert motion_planner is not None, "motion planner must be defined if display_phi is true"
@@ -1188,7 +1215,7 @@ class OvercookedGridworld(object):
         return new_state, infos
     
 
-    def resolve_interacts(self, new_state, joint_action, events_infos):
+    def resolve_interacts(self, new_state, joint_action, events_infos, info=None):
         """
         Resolve any INTERACT actions, if present.
 
@@ -1200,14 +1227,27 @@ class OvercookedGridworld(object):
         adversary = new_state.players[adversary_idx]
         adversary_action = joint_action[adversary_idx]
 
+        rl_agent_pos = new_state.players[0].position
+        adv_agent_pos =  new_state.players[1].position
+
         # example of adversarial behavior 
         behave_adversarial = False 
-        if random.random() < advers_prob:
-            behave_adversarial = True 
+        did_averse_action = False 
+        if adv_agent: 
+            if random.random() < advers_prob and is_close_enough(rl_agent_pos, adv_agent_pos):
+                behave_adversarial = True 
+
+        behave_lazy = False 
+        did_lazy_action = False 
+        if lazy_agent: 
+            if random.random() < lazy_prob:
+                behave_lazy = True  
         
         pot_states = self.get_pot_states(new_state)
         # We divide reward by agent to keep track of who contributed
         sparse_reward, shaped_reward = [0] * self.num_players, [0] * self.num_players
+
+        player_states = []
 
         for player_idx, (player, action) in enumerate(zip(new_state.players, joint_action)):
             
@@ -1254,20 +1294,34 @@ class OvercookedGridworld(object):
                 player.set_object(ObjectState('tomato', pos))
 
             elif terrain_type == 'D' and player.held_object is None:
-                if behave_adversarial: 
+                if behave_adversarial and player_idx == 1: 
+                    print(f'adversarial dish act')
+                    did_averse_action = True 
                     # adversarial agent prevents dish action 
-                    player.update_bayes("adversarial", True)
+                    if multi_dim_trust: 
+                        new_state.players[0].update_bayes("adversarial", did_averse_action)
+                    elif include_trust: 
+                        new_state.players[0].update_bayes("lazy", did_averse_action) # lazy is catch-all for any failure to complete task
+                        did_lazy_action = True 
+
                     return sparse_reward, shaped_reward 
+                
+                if not behave_lazy: 
+                    print('not lazy dish act')
+                    self.log_object_pickup(events_infos, new_state, "dish", pot_states, player_idx)
 
-                self.log_object_pickup(events_infos, new_state, "dish", pot_states, player_idx)
+                    # Give shaped reward if pickup is useful
+                    if self.is_dish_pickup_useful(new_state, pot_states):
+                        shaped_reward[player_idx] += self.reward_shaping_params["DISH_PICKUP_REWARD"]
 
-                # Give shaped reward if pickup is useful
-                if self.is_dish_pickup_useful(new_state, pot_states):
-                    shaped_reward[player_idx] += self.reward_shaping_params["DISH_PICKUP_REWARD"]
-
-                # Perform dish pickup from dispenser
-                obj = ObjectState('dish', pos)
-                player.set_object(obj)
+                    # Perform dish pickup from dispenser
+                    obj = ObjectState('dish', pos)
+                    player.set_object(obj)
+                
+                else:
+                    if player_idx == 1: 
+                        print('was lazy boy')
+                        did_lazy_action = True 
 
             elif terrain_type == 'P' and not player.has_object():
                 # Cooking soup
@@ -1309,14 +1363,22 @@ class OvercookedGridworld(object):
             elif terrain_type == 'S' and player.has_object():
                 obj = player.get_object()
                 if obj.name == 'soup':
+                    print('soup time')
                     delivery_rew = self.deliver_soup(new_state, player, obj)
                     sparse_reward[player_idx] += delivery_rew
 
                     # Log soup delivery
                     events_infos['soup_delivery'][player_idx] = True
 
-        player.update_bayes("adversarial", False)
-        return sparse_reward, shaped_reward
+        if multi_dim_trust: 
+            new_state.players[0].update_bayes("adversarial", did_averse_action)
+            new_state.players[0].update_bayes("lazy", did_lazy_action)
+        elif include_trust: 
+            new_state.players[0].update_bayes("lazy", did_lazy_action)
+        
+        player_states.append(new_state.players[0])
+
+        return sparse_reward, shaped_reward, player_states
 
     # def resolve_interacts(self, new_state, joint_action, events_infos):
     #     """
@@ -2325,12 +2387,15 @@ class OvercookedGridworld(object):
 
             if include_trust: 
                 # Add bayes features here 
-                all_features["p{}_alpha_lazy".format(i)] = [player.alpha_lazy]
-                all_features["p{}_beta_lazy".format(i)] = [player.beta_lazy]
-                all_features["p{}_uncert_lazy".format(i)] = [player.uncertainty_lazy]
-                all_features["p{}_alpha_adver".format(i)] = [player.alpha_adversary]
-                all_features["p{}_beta_adver".format(i)] = [player.beta_adversary]
-                all_features["p{}_uncert_adver".format(i)] = [player.uncertainty_adversary]
+                if (multi_dim_trust) and (include_trust): 
+                    all_features["p{}_alpha_lazy".format(i)] = [player.alpha_lazy]
+                    all_features["p{}_beta_lazy".format(i)] = [player.beta_lazy]
+                    all_features["p{}_uncert_lazy".format(i)] = [player.uncertainty_lazy]
+                
+                if (multi_dim_trust): 
+                    all_features["p{}_alpha_adver".format(i)] = [player.alpha_adversary]
+                    all_features["p{}_beta_adver".format(i)] = [player.beta_adversary]
+                    all_features["p{}_uncert_adver".format(i)] = [player.uncertainty_adversary]
 
             obj = player.held_object
 

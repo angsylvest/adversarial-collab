@@ -15,6 +15,7 @@ from utils.agent import find_index
 
 import hydra
 from omegaconf import DictConfig
+from overcooked_ai_py.mdp.constants import *
 
 
 class Workspace(object):
@@ -79,6 +80,7 @@ class Workspace(object):
         self.step = 0
 
         self.players = self.env.overcooked.state.players
+        self.bayes_buffer = {"alpha_lazy": 1, "alpha_adv": 1, "beta_lazy": 1, "beta_adv": 1}
 
     def evaluate(self):
         average_episode_reward = 0
@@ -109,6 +111,7 @@ class Workspace(object):
                     action = self.agent.act(obs, sample=False)
 
                 obs, rewards, done, info = self.env.step(action)
+
                 rewards = np.array(info['shaped_r_by_agent']).reshape(-1, 1)
 
                 self.video_recorder.record(self.env)
@@ -124,7 +127,7 @@ class Workspace(object):
         self.logger.dump(self.step)
 
     def run(self):
-
+        info = None 
         episode, episode_reward, done = 0, 0, True
         start_time = time.time()
         while self.step < self.cfg.num_train_steps + 1:
@@ -156,16 +159,19 @@ class Workspace(object):
                 self.logger.log('train/episode', episode, self.step)
 
                 # angel: add custom logger info here 
-                self.logger.log('perf/episode', episode, self.step )
-                self.logger.log('perf/alpha_adv', self.players[0].alpha_adversary, self.step)
-                self.logger.log('perf/beta_adv', self.players[0].beta_adversary, self.step)
-                self.logger.log('perf/trust_adv', self.players[0].trust_score_adversary, self.step)
-                self.logger.log('perf/uncert_adv', self.players[0].uncertainty_adversary, self.step)
+                if include_trust: 
+                    self.logger.log('perf/episode', episode, self.step)
+                    self.logger.log('perf/alpha_laz', self.players[0].alpha_lazy, self.step)
+                    self.logger.log('perf/beta_laz', self.players[0].beta_lazy, self.step)
+                    self.logger.log('perf/trust_laz', self.players[0].trust_score_lazy, self.step)
+                    self.logger.log('perf/uncert_laz', self.players[0].uncertainty_lazy, self.step)
+                    if multi_dim_trust: 
+                        self.logger.log('perf/episode', episode, self.step )
+                        self.logger.log('perf/alpha_adv', self.players[0].alpha_adversary, self.step)
+                        self.logger.log('perf/beta_adv', self.players[0].beta_adversary, self.step)
+                        self.logger.log('perf/trust_adv', self.players[0].trust_score_adversary, self.step)
+                        self.logger.log('perf/uncert_adv', self.players[0].uncertainty_adversary, self.step)
                 
-                self.logger.log('perf/alpha_laz', self.players[0].alpha_lazy, self.step)
-                self.logger.log('perf/beta_laz', self.players[0].beta_lazy, self.step)
-                self.logger.log('perf/trust_laz', self.players[0].trust_score_lazy, self.step)
-                self.logger.log('perf/uncert_laz', self.players[0].uncertainty_lazy, self.step)
 
 
                 self.logger.dump(self.step)
@@ -193,7 +199,8 @@ class Workspace(object):
             if self.step >= self.cfg.num_seed_steps and self.step >= self.agent.batch_size:
                 self.agent.update(self.replay_buffer, self.logger, self.step)
 
-            next_obs, rewards, done, info = self.env.step(action)
+            next_obs, rewards, done, info = self.env.step(action, info)
+            
             rewards = np.array(info['shaped_r_by_agent']).reshape(-1, 1)
 
             if episode_step + 1 == self.env.episode_length:

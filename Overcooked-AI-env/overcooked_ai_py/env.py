@@ -54,11 +54,15 @@ class OverCookedEnv():
 
         return image
 
-    def step(self, action):
+    def step(self, action, info=None):
         action = _convert_action(action)
 
         next_state, reward, done, info = self.overcooked.step(action)
-        return self._get_observation(), reward, done, info
+        # return self._get_observation(), reward, done, info
+        self.overcooked.state = next_state
+        next_state = np.array(self.overcooked.featurize_state_mdp(next_state))
+
+        return next_state, reward, done, info
 
     def _get_observation(self):
         return self.get_feature_state().reshape(len(self.agents), -1)

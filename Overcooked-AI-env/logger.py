@@ -195,14 +195,12 @@ class Logger(object):
             value = value.item()
         self._try_sw_log(key, value / n, step)
         
-        print(f'key and val: {key, value}')
         if key.startswith('train'):  
             mg = self._train_mg
         elif key.startswith('eval'):
             mg = self._eval_mg
         else:
             mg = self._perf_mg
-            print('using correct mg')
         mg.log(key, value, n)
 
     def log_param(self, key, param, step, log_frequency=None):
