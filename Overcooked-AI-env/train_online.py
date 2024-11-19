@@ -140,6 +140,7 @@ class Workspace(object):
         start_time = time.time()
         while self.step < self.cfg.num_train_steps + 1:
             if done or self.step % self.cfg.eval_frequency == 0:
+                # print(f'interactions dict: {self.env.overcooked.state.players[0].interaction_history}')
 
                 if self.step > 0:
                     # example of dump step 
@@ -155,6 +156,31 @@ class Workspace(object):
 
                 self.logger.log('train/episode_reward', episode_reward, self.step)
                 self.sw.add_scalar("Reward/train", episode_reward, self.step)
+
+                # angel: add custom logger info here 
+                if include_trust: 
+                    self.logger.log('perf/episode', episode, self.step)
+                    self.logger.log('perf/alpha_laz', self.env.overcooked.state.players[0].alpha_lazy, self.step)
+                    self.logger.log('perf/beta_laz', self.env.overcooked.state.players[0].beta_lazy, self.step)
+                    self.logger.log('perf/trust_laz', self.env.overcooked.state.players[0].trust_score_lazy, self.step)
+                    self.logger.log('perf/uncert_laz', self.env.overcooked.state.players[0].uncertainty_lazy, self.step)
+
+                    self.sw.add_scalar("Trust/lazy", self.env.overcooked.state.players[0].trust_score_lazy, self.step)
+                    self.sw.add_scalar("Trust/lazy_uncert", self.env.overcooked.state.players[0].uncertainty_lazy, self.step)
+                    
+                    if multi_dim_trust: 
+                        self.logger.log('perf/episode', episode, self.step )
+                        self.logger.log('perf/alpha_adv', self.env.overcooked.state.players[0].alpha_adversary, self.step)
+                        self.logger.log('perf/beta_adv', self.env.overcooked.state.players[0].beta_adversary, self.step)
+                        self.logger.log('perf/trust_adv', self.env.overcooked.state.players[0].trust_score_adversary, self.step)
+                        self.logger.log('perf/uncert_adv', self.env.overcooked.state.players[0].uncertainty_adversary, self.step)
+                
+                        self.sw.add_scalar("Trust/adv", self.env.overcooked.state.players[0].trust_score_adversary, self.step)
+                        self.sw.add_scalar("Trust/adv_uncert", self.env.overcooked.state.players[0].uncertainty_adversary, self.step)
+                    
+                    # print(f'curr interaction history: {self.env.overcooked.state.players[0].interaction_history}')
+                    # self.sw.flush()
+
                 self.sw.flush() # will ensure paramters are written to disk 
 
                 obs = self.env.reset()
@@ -168,29 +194,6 @@ class Workspace(object):
                 episode += 1
 
                 self.logger.log('train/episode', episode, self.step)
-
-                # angel: add custom logger info here 
-                if include_trust: 
-                    self.logger.log('perf/episode', episode, self.step)
-                    self.logger.log('perf/alpha_laz', self.players[0].alpha_lazy, self.step)
-                    self.logger.log('perf/beta_laz', self.players[0].beta_lazy, self.step)
-                    self.logger.log('perf/trust_laz', self.players[0].trust_score_lazy, self.step)
-                    self.logger.log('perf/uncert_laz', self.players[0].uncertainty_lazy, self.step)
-
-                    self.sw.add_scalar("Trust/lazy", self.players[0].trust_score_lazy, self.step)
-                    self.sw.add_scalar("Trust/lazy", self.players[0].uncertainty_lazy, self.step)
-                    
-                    if multi_dim_trust: 
-                        self.logger.log('perf/episode', episode, self.step )
-                        self.logger.log('perf/alpha_adv', self.players[0].alpha_adversary, self.step)
-                        self.logger.log('perf/beta_adv', self.players[0].beta_adversary, self.step)
-                        self.logger.log('perf/trust_adv', self.players[0].trust_score_adversary, self.step)
-                        self.logger.log('perf/uncert_adv', self.players[0].uncertainty_adversary, self.step)
-                
-                        self.sw.add_scalar("Trust/adv", self.players[0].trust_score_adversary, self.step)
-                        self.sw.add_scalar("Trust/adv_uncert", self.players[0].uncertainty_adversary, self.step)
-                    
-                    self.sw.flush()
 
                 # self.logger.dump(self.step)
 
@@ -218,6 +221,7 @@ class Workspace(object):
                 self.agent.update(self.replay_buffer, self.logger, self.step)
 
             next_obs, rewards, done, info = self.env.step(action, info)
+            # print(f'next obs: {next_obs}
             
             rewards = np.array(info['shaped_r_by_agent']).reshape(-1, 1)
 

@@ -60,8 +60,9 @@ class OverCookedEnv():
         next_state, reward, done, info = self.overcooked.step(action)
         # return self._get_observation(), reward, done, info
         self.overcooked.state = next_state
+        # print(f'curr stats: {next_state.players[0].interaction_history}')
         next_state = np.array(self.overcooked.featurize_state_mdp(next_state))
-
+        # print(next_state)
         return next_state, reward, done, info
 
     def _get_observation(self):
