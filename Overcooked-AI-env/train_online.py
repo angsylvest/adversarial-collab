@@ -17,6 +17,8 @@ import hydra
 from omegaconf import DictConfig
 from overcooked_ai_py.mdp.constants import *
 
+from torch.utils.tensorboard import SummaryWriter
+import datetime
 
 class Workspace(object):
     def __init__(self, cfg):
@@ -42,6 +44,7 @@ class Workspace(object):
         self.adversary_indexes = find_index(self.env_agent_types, 'adversary')
 
         self.adversarial = cfg.adversarial 
+        date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         # OU Noise settings
         self.num_seed_steps = cfg.num_seed_steps
@@ -81,6 +84,9 @@ class Workspace(object):
 
         self.players = self.env.overcooked.state.players
         self.bayes_buffer = {"alpha_lazy": 1, "alpha_adv": 1, "beta_lazy": 1, "beta_adv": 1}
+
+        # create relevant tensorboard params to record 
+        self.sw = SummaryWriter(log_dir=os.path.join(self.work_dir, f"../../../runs/{date_str}_experiment_{self.cfg.env}"))# SummaryWriter(log_dir=os.path.join(self.work_dir, 'runs'))
 
     def evaluate(self):
         average_episode_reward = 0
@@ -124,6 +130,8 @@ class Workspace(object):
 
         average_episode_reward /= self.cfg.num_eval_episodes
         self.logger.log('eval/episode_reward', average_episode_reward, self.step)
+        self.sw.add_scalar("Reward/eval", average_episode_reward, self.step)
+        self.sw.flush()
         self.logger.dump(self.step)
 
     def run(self):
@@ -138,6 +146,7 @@ class Workspace(object):
                     self.logger.log('train/duration', time.time() - start_time, self.step)
                     start_time = time.time()
                     self.logger.dump(self.step, save=(self.step > self.cfg.num_seed_steps))
+                    self.sw.flush() # will ensure paramters are written to disk 
 
                 if self.step > 0 and self.step % self.cfg.eval_frequency == 0:
                     self.logger.log('eval/episode', episode, self.step)
@@ -145,6 +154,8 @@ class Workspace(object):
                     start_time = time.time()
 
                 self.logger.log('train/episode_reward', episode_reward, self.step)
+                self.sw.add_scalar("Reward/train", episode_reward, self.step)
+                self.sw.flush() # will ensure paramters are written to disk 
 
                 obs = self.env.reset()
 
@@ -165,6 +176,10 @@ class Workspace(object):
                     self.logger.log('perf/beta_laz', self.players[0].beta_lazy, self.step)
                     self.logger.log('perf/trust_laz', self.players[0].trust_score_lazy, self.step)
                     self.logger.log('perf/uncert_laz', self.players[0].uncertainty_lazy, self.step)
+
+                    self.sw.add_scalar("Trust/lazy", self.players[0].trust_score_lazy, self.step)
+                    self.sw.add_scalar("Trust/lazy", self.players[0].uncertainty_lazy, self.step)
+                    
                     if multi_dim_trust: 
                         self.logger.log('perf/episode', episode, self.step )
                         self.logger.log('perf/alpha_adv', self.players[0].alpha_adversary, self.step)
@@ -172,9 +187,12 @@ class Workspace(object):
                         self.logger.log('perf/trust_adv', self.players[0].trust_score_adversary, self.step)
                         self.logger.log('perf/uncert_adv', self.players[0].uncertainty_adversary, self.step)
                 
+                        self.sw.add_scalar("Trust/adv", self.players[0].trust_score_adversary, self.step)
+                        self.sw.add_scalar("Trust/adv_uncert", self.players[0].uncertainty_adversary, self.step)
+                    
+                    self.sw.flush()
 
-
-                self.logger.dump(self.step)
+                # self.logger.dump(self.step)
 
             if self.step < self.cfg.num_seed_steps:
                 action = np.array([self.env.action_space.sample() for _ in self.env_agent_types])
@@ -202,6 +220,7 @@ class Workspace(object):
             next_obs, rewards, done, info = self.env.step(action, info)
             
             rewards = np.array(info['shaped_r_by_agent']).reshape(-1, 1)
+
 
             if episode_step + 1 == self.env.episode_length:
                 done = True

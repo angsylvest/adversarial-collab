@@ -104,6 +104,7 @@ class MetersGroup(object):
                                               fieldnames=sorted(data.keys()),
                                               restval=0.0)
             self._csv_writer.writeheader()
+        print(f'csv writter being used: {self._csv_writer.fieldnames} vs data keys: {data.keys()}')
         self._csv_writer.writerow(data)
         self._csv_file.flush()
 
