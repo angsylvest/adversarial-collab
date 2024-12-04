@@ -10,25 +10,25 @@ import math
 
 class Hyperparam: 
     # set defaults here 
-	def ___init__(self): 
-		# include updated params here 
-		self.params = {
-            "alg_type": "multiTravos" # "multiTravos" # [multiTravos, baseline, Travos]
-            "lazy_agent": True
-            "adv_agent": True 
-            "both": False 
-            "advers_prob": 0.5
-            "lazy_prob": 0.5
-            "discretize_trust": True 
-            "adaptive_discretize": False
-            "include_in": [True, True, True, True]
-            "one_hot_encode": True 
-            "include_thres": True  
+    def __init__(self): 
+        # include updated params here 
+        self.params = {
+            "alg_type": None, # "multiTravos", # "multiTravos" # [multiTravos, baseline, Travos]
+            "lazy_agent": None,
+            "adv_agent": None, 
+            "both": None,
+            "advers_prob": None,
+            "lazy_prob": None,
+            "discretize_trust": None ,
+            "adaptive_discretize": None,
+            "include_in": None, # [True, True, True, True],
+            "one_hot_encode": None ,
+            "include_thres": None  
         } 
 
-	def update_params(self, dict_of_vals):
-		# update relevant params here 
-		for item in dict_of_vals:
+    def update_params(self, dict_of_vals):
+        # update relevant params here 
+        for item in dict_of_vals:
             if item in self.params.keys():
                 self.params[item] = dict_of_vals[item] 
 

@@ -12,34 +12,6 @@ DEFAULT_ENV_PARAMS = {
 
 MAX_HORIZON = 1e10
 
-class Hyperparam: 
-    # set defaults here 
-	def ___init__(self): 
-		# include updated params here 
-        self.params = {
-            "alg_type": cfg.alg_type # "multiTravos" # [multiTravos, baseline, Travos]
-            "lazy_agent": cfg.lazy_agent
-            "adv_agent": cfg.adv_agent 
-            "both": cfg.both 
-            "advers_prob": cfg.advers_prob
-            "lazy_prob": cfg.lazy_prob
-            "discretize_trust": cfg.discretize_trust 
-            "adaptive_discretize": cfg.adaptive_discretize
-            "include_in": cfg.include_in
-            "one_hot_encode": cfg.one_hot_encode 
-            "include_thres": cfg.include_thres
-            "include_trust": True 
-            "multi_dim_trust": True 
-            "save_path_include": "" 
-        } 
-
-	def update_params(self, dict_of_vals):
-		# update relevant params here 
-		for item in dict_of_vals:
-            if item in self.params.keys():
-                self.params[item] = dict_of_vals[item] 
-
-
 class OvercookedEnv(object):
     """
     An environment wrapper for the OvercookedGridworld Markov Decision Process.

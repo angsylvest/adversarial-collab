@@ -38,6 +38,7 @@ class Workspace(object):
         self.save_replay_buffer = cfg.save_replay_buffer
         # self.env = NormalizedEnv(make_env(cfg.env, discrete_action=self.discrete_action))
         self.config_dict = self.create_config(self.cfg)
+        # self.config_dict = {}
 
         self.env = OverCookedEnv(scenario=self.cfg.env, episode_length=self.cfg.episode_length, config=self.config_dict)
 
@@ -95,19 +96,19 @@ class Workspace(object):
             return {}
 
         self.params = {
-            "alg_type": cfg.alg_type # "multiTravos" # [multiTravos, baseline, Travos]
-            "lazy_agent": cfg.lazy_agent
-            "adv_agent": cfg.adv_agent 
-            "both": cfg.both 
-            "advers_prob": cfg.advers_prob
-            "lazy_prob": cfg.lazy_prob
-            "discretize_trust": cfg.discretize_trust 
-            "adaptive_discretize": cfg.adaptive_discretize
-            "include_in": cfg.include_in
-            "one_hot_encode": cfg.one_hot_encode 
-            "include_thres": cfg.include_thres
-            "include_trust": True 
-            "multi_dim_trust": True 
+            "alg_type": cfg.alg_type, # "multiTravos" # [multiTravos, baseline, Travos]
+            "lazy_agent": cfg.lazy_agent,
+            "adv_agent": cfg.adv_agent, 
+            "both": cfg.both, 
+            "advers_prob": cfg.advers_prob,
+            "lazy_prob": cfg.lazy_prob,
+            "discretize_trust": cfg.discretize_trust,  
+            "adaptive_discretize": cfg.adaptive_discretize, 
+            "include_in": cfg.include_in, 
+            "one_hot_encode": cfg.one_hot_encode,  
+            "include_thres": cfg.include_thres, 
+            "include_trust": True,  
+            "multi_dim_trust": True,  
             "save_path_include": "" 
         } 
 
@@ -125,7 +126,7 @@ class Workspace(object):
             self.params["include_trust"] = True # True # Only TRAVOS
             self.params["multi_dim_trust"] = False # True # For multi-TRAVOS    
         else: 
-            alg_type += f"_disc_{discretize_trust}_adapt_{adaptive_discretize}_int_count_{include_thres}"
+            alg_type += f"_disc_{discretize_trust}_adapt_{adaptive_discretize}_int_count_{cfg.include_thres}"
             self.params["include_trust"] = True # True # Only TRAVOS
             self.params["multi_dim_trust"] = True # True # For multi-TRAVOS    
 
