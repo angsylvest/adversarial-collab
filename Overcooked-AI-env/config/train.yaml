@@ -2,7 +2,7 @@ defaults:
     - agent: maddpg
 
 # Experiment Settings
-env: asymmetric_advantages
+env: cramped_room # asymmetric_advantages # asymmetric_advantages # coordination_ring # cramped_room
 episode_length: 500
 discrete_action_space: true
 
@@ -35,6 +35,20 @@ render: false
 # Save Buffer
 save_model: false
 save_replay_buffer: false
+
+# env relevant params (could be overwritten)
+alg_type: multiTravos # "multiTravos" # [multiTravos, baseline, Travos]
+lazy_agent: True
+adv_agent: True 
+both: False 
+advers_prob: 0.5
+lazy_prob: 0.5
+discretize_trust: True 
+adaptive_discretize: False
+include_in: [True, True, True, True]
+one_hot_encode: True 
+include_thres: True 
+# ---------------------------
 
 # hydra configuration
 hydra:

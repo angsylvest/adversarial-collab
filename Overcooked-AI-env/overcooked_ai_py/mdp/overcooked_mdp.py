@@ -8,6 +8,29 @@ import random
 from overcooked_ai_py.mdp.constants import *
 import math
 
+class Hyperparam: 
+    # set defaults here 
+	def ___init__(self): 
+		# include updated params here 
+		self.params = {
+            "alg_type": "multiTravos" # "multiTravos" # [multiTravos, baseline, Travos]
+            "lazy_agent": True
+            "adv_agent": True 
+            "both": False 
+            "advers_prob": 0.5
+            "lazy_prob": 0.5
+            "discretize_trust": True 
+            "adaptive_discretize": False
+            "include_in": [True, True, True, True]
+            "one_hot_encode": True 
+            "include_thres": True  
+        } 
+
+	def update_params(self, dict_of_vals):
+		# update relevant params here 
+		for item in dict_of_vals:
+            if item in self.params.keys():
+                self.params[item] = dict_of_vals[item] 
 
 class Recipe:
     MAX_NUM_INGREDIENTS = 3
@@ -545,13 +568,22 @@ class PlayerState(object):
 
         self.alpha_adversary = 1  # Initial alpha (trust)
         self.beta_adversary = 1   # Initial beta (distrust)
-        self.trust_score_adversary = self.alpha_adversary / (self.alpha_adversary + self.beta_adversary)  # Initial trust score (mean of Beta)
-        self.uncertainty_adversary = self.calculate_uncertainty(self.alpha_adversary , self.beta_adversary)  # Initial uncertainty (variance of Beta)
+        self.trust_score_adversary = self.adaptively_discretize_trust(self.alpha_adversary / (self.alpha_adversary + self.beta_adversary))  # Initial trust score (mean of Beta)
+        self.uncertainty_adversary = self.adaptively_discretize_trust(self.calculate_uncertainty(self.alpha_adversary , self.beta_adversary))  # Initial uncertainty (variance of Beta)
 
         self.alpha_lazy = 1  # Initial alpha (trust)
         self.beta_lazy = 1   # Initial beta (distrust)
-        self.trust_score_lazy= self.alpha_lazy  / (self.alpha_lazy  + self.beta_lazy)  # Initial trust score (mean of Beta)
-        self.uncertainty_lazy = self.calculate_uncertainty(self.alpha_lazy, self.beta_lazy)  # Initial uncertainty (variance of Beta)
+        self.trust_score_lazy= self.adaptively_discretize_trust(self.alpha_lazy  / (self.alpha_lazy  + self.beta_lazy))  # Initial trust score (mean of Beta)
+        self.uncertainty_lazy = self.adaptively_discretize_trust(self.calculate_uncertainty(self.alpha_lazy, self.beta_lazy))  # Initial uncertainty (variance of Beta)
+
+        self.interaction_history["adv_trust"] = self.alpha_adversary / (self.alpha_adversary + self.beta_adversary)
+        self.interaction_history["adv_uncert"] = self.calculate_uncertainty(self.alpha_adversary , self.beta_adversary)
+        self.interaction_history["lazy_trust"] = self.alpha_lazy  / (self.alpha_lazy  + self.beta_lazy)
+        self.interaction_history["lazy_uncert"] = self.calculate_uncertainty(self.alpha_lazy, self.beta_lazy)
+        
+        self.reset_threshold = 100  # Threshold to reset (can be adjusted)
+        self.interaction_count = 0  # Track the number of interactions
+        self.include_threshold = include_thres 
 
         assert self.orientation in Direction.ALL_DIRECTIONS
         if self.held_object is not None:
@@ -570,16 +602,26 @@ class PlayerState(object):
 
     
     def update_bayes(self, type, success=False):
+        self.interaction_count += 1
+
+        if self.include_threshold: 
+            # Randomly reset alpha and beta if a certain condition is met
+            if self.interaction_count >= self.reset_threshold:
+                if random.random() < 0.1:  # 10% chance to reset after 100 interactions
+                    self.reset_bayes()
+                    print("Randomly resetting alpha and beta to 1 due to high interaction count.")
+                    self.interaction_count = 0  # Reset interaction count after reset
+            
 
         if type == "adversarial":
             self.update_adv_trust(success)
         else: 
             self.update_lazy_trust(success)
 
-        self.interaction_history["adv_trust"] = self.trust_score_adversary
-        self.interaction_history["adv_uncert"] = self.uncertainty_adversary 
-        self.interaction_history["lazy_trust"] = self.trust_score_lazy 
-        self.interaction_history["lazy_uncert"] = self.uncertainty_lazy
+        self.interaction_history["adv_trust"] = self.alpha_adversary / (self.alpha_adversary + self.beta_adversary)
+        self.interaction_history["adv_uncert"] = self.calculate_uncertainty(self.alpha_adversary , self.beta_adversary)
+        self.interaction_history["lazy_trust"] = self.alpha_lazy  / (self.alpha_lazy  + self.beta_lazy)
+        self.interaction_history["lazy_uncert"] = self.calculate_uncertainty(self.alpha_lazy, self.beta_lazy)
 
         # print(f'updated interaction history: {self.interaction_history}')
 
@@ -600,6 +642,34 @@ class PlayerState(object):
         # Update uncertainty (variance of Beta distribution)
         self.uncertainty_adversary = self.calculate_uncertainty(self.alpha_adversary, self.beta_adversary)
 
+        if discretize_trust:
+            self.trust_score_adversary = self.adaptively_discretize_trust(self.trust_score_adversary, adapt=False)
+            self.uncertainty_adversary = self.adaptively_discretize_trust(self.uncertainty_adversary, adapt=False)
+
+    def one_hot(self, index, num_bins):
+        """
+        Converts an index value to a one-hot encoded vector.
+        """
+        one_hot = np.zeros(num_bins)
+        one_hot[index] = 1
+        return one_hot
+    
+    def adaptively_discretize_trust(self, trust_score, adapt=False):
+
+        if trust_score > 0.98 and adapt:
+            # Focus on fine-grained changes for high trust
+            bins = [0.99, 0.995, 0.998, 1.0]
+        else:
+            # Broader bins for lower trust
+            # bins = [0, 0.5, 0.8, 0.95, 0.99]
+            bins = [0, 0.25, 0.5, 0.75, 0.9, 1.0]
+        
+        index = np.digitize([trust_score], bins, right=True)[0] 
+        if one_hot_encode:
+            return self.one_hot(index-1, len(bins))
+            
+        else: 
+            return index
 
     def update_lazy_trust(self, success=False):
         """ Update the trust score based on whether the interaction was adversarial or not. """
@@ -614,6 +684,10 @@ class PlayerState(object):
 
         # Update uncertainty (variance of Beta distribution)
         self.uncertainty_lazy = self.calculate_uncertainty(self.alpha_lazy, self.beta_lazy)
+
+        if discretize_trust:
+            self.trust_score_lazy = self.adaptively_discretize_trust(self.trust_score_lazy, adapt=False)
+            self.uncertainty_lazy = self.adaptively_discretize_trust(self.uncertainty_lazy, adapt=False)
 
     def has_object(self):
         return self.held_object is not None
@@ -646,6 +720,7 @@ class PlayerState(object):
         player_state.beta_adversary = self.beta_adversary
         player_state.alpha_lazy = self.alpha_lazy
         player_state.beta_lazy = self.beta_lazy
+        player_state.interaction_count = self.interaction_count
         return player_state # PlayerState(self.position, self.orientation, new_obj)
 
     def __eq__(self, other):
@@ -704,6 +779,9 @@ class OvercookedState(object):
         self._bonus_orders = bonus_orders
         self._all_orders = all_orders
         self.timestep = timestep
+        self.hp = Hyperparam()
+
+        # update availability of info to players .. 
 
         assert len(set(self.bonus_orders)) == len(self.bonus_orders), "Bonus orders must not have duplicates"
         assert len(set(self.all_orders)) == len(self.all_orders), "All orders must not have duplicates"
@@ -1235,21 +1313,34 @@ class OvercookedGridworld(object):
         # example of adversarial behavior 
         behave_adversarial = False 
         did_averse_action = False 
-        if adv_agent: 
-            if random.random() < advers_prob and is_close_enough(rl_agent_pos, adv_agent_pos):
-                behave_adversarial = True 
-
         behave_lazy = False 
         did_lazy_action = False 
-        if lazy_agent: 
-            if random.random() < lazy_prob:
-                behave_lazy = True  
+
+        if both: 
+            # Randomly decide whether to behave adversarially or lazily if both are possible
+            if random.random() < 0.5:  # 50% chance to pick one of the behaviors
+                if adv_agent and random.random() < advers_prob and is_close_enough(rl_agent_pos, adv_agent_pos):
+                    behave_adversarial = True
+
+            else:
+                if lazy_agent and random.random() < lazy_prob:
+                    behave_lazy = True
+        
+        else: 
+            if adv_agent: 
+                if random.random() < advers_prob and is_close_enough(rl_agent_pos, adv_agent_pos):
+                    behave_adversarial = True 
+
+            if lazy_agent: 
+                if random.random() < lazy_prob:
+                    behave_lazy = True  
         
         pot_states = self.get_pot_states(new_state)
         # We divide reward by agent to keep track of who contributed
         sparse_reward, shaped_reward = [0] * self.num_players, [0] * self.num_players
 
         player_states = []
+        index = None 
 
         for player_idx, (player, action) in enumerate(zip(new_state.players, joint_action)):
             
@@ -1296,7 +1387,8 @@ class OvercookedGridworld(object):
                 player.set_object(ObjectState('tomato', pos))
 
             elif terrain_type == 'D' and player.held_object is None:
-                if behave_adversarial and player_idx == 1: 
+                index = 0 
+                if behave_adversarial and include_in[0]: 
                     print(f'adversarial dish act')
                     did_averse_action = True 
                     # adversarial agent prevents dish action 
@@ -1306,9 +1398,12 @@ class OvercookedGridworld(object):
                         new_state.players[0].update_bayes("lazy", did_averse_action) # lazy is catch-all for any failure to complete task
                         did_lazy_action = True 
 
-                    return sparse_reward, shaped_reward 
+                    return sparse_reward, shaped_reward, [] 
                 
-                if not behave_lazy or player_idx == 0: 
+                elif behave_lazy and player_idx == 1 and include_in[0]:
+                    did_lazy_action = True 
+                
+                else: 
                     # print('not lazy dish act')
                     self.log_object_pickup(events_infos, new_state, "dish", pot_states, player_idx)
 
@@ -1319,9 +1414,7 @@ class OvercookedGridworld(object):
                     # Perform dish pickup from dispenser
                     obj = ObjectState('dish', pos)
                     player.set_object(obj)
-                
-                else:
-                    did_lazy_action = True 
+
 
             elif terrain_type == 'P' and not player.has_object():
                 # Cooking soup
@@ -1330,50 +1423,99 @@ class OvercookedGridworld(object):
                     soup.begin_cooking()
 
             elif terrain_type == 'P' and player.has_object():
-
                 if player.get_object().name == 'dish' and self.soup_ready_at_location(new_state, i_pos):
-                    self.log_object_pickup(events_infos, new_state, "soup", pot_states, player_idx)
+                    index = 1 
+                    if behave_adversarial and include_in[1]: 
+                        did_averse_action = True 
+                        # adversarial agent prevents dish action 
+                        if multi_dim_trust: 
+                            new_state.players[0].update_bayes("adversarial", did_averse_action)
+                        elif include_trust: 
+                            new_state.players[0].update_bayes("lazy", did_averse_action) # lazy is catch-all for any failure to complete task
+                            did_lazy_action = True 
 
-                    # Pick up soup
-                    player.remove_object()  # Remove the dish
-                    obj = new_state.remove_object(i_pos)  # Get soup
-                    player.set_object(obj)
-                    shaped_reward[player_idx] += self.reward_shaping_params["SOUP_PICKUP_REWARD"]
+                        return sparse_reward, shaped_reward, [] 
+
+                    elif behave_lazy and player_idx == 1 and include_in[1]:
+                        did_lazy_action = True 
+
+                    else: 
+                        self.log_object_pickup(events_infos, new_state, "soup", pot_states, player_idx)
+
+                        # Pick up soup
+                        player.remove_object()  # Remove the dish
+                        obj = new_state.remove_object(i_pos)  # Get soup
+                        player.set_object(obj)
+                        shaped_reward[player_idx] += self.reward_shaping_params["SOUP_PICKUP_REWARD"]
 
                 elif player.get_object().name in Recipe.ALL_INGREDIENTS:
+                    index = 2
                     # Adding ingredient to soup
+                    if behave_adversarial and include_in[2]: 
+                        print(f'adversarial dish act')
+                        did_averse_action = True 
+                        # adversarial agent prevents dish action 
+                        if multi_dim_trust: 
+                            new_state.players[0].update_bayes("adversarial", did_averse_action)
+                        elif include_trust: 
+                            new_state.players[0].update_bayes("lazy", did_averse_action) # lazy is catch-all for any failure to complete task
+                            did_lazy_action = True 
 
-                    if not new_state.has_object(i_pos):
-                        # Pot was empty, add soup to it
-                        new_state.add_object(SoupState(i_pos, ingredients=[]))
+                        return sparse_reward, shaped_reward, [] 
+                
+                    elif behave_lazy and player_idx == 1 and include_in[2]:
+                        did_lazy_action = True 
+                    
+                    else: 
+                        if not new_state.has_object(i_pos):
+                            # Pot was empty, add soup to it
+                            new_state.add_object(SoupState(i_pos, ingredients=[]))
 
-                    # Add ingredient if possible
-                    soup = new_state.get_object(i_pos)
-                    if not soup.is_full:
-                        old_soup = soup.deepcopy()
-                        obj = player.remove_object()
-                        soup.add_ingredient(obj)
-                        shaped_reward[player_idx] += self.reward_shaping_params["PLACEMENT_IN_POT_REW"]
+                        # Add ingredient if possible
+                        soup = new_state.get_object(i_pos)
+                        if not soup.is_full:
+                            old_soup = soup.deepcopy()
+                            obj = player.remove_object()
+                            soup.add_ingredient(obj)
+                            shaped_reward[player_idx] += self.reward_shaping_params["PLACEMENT_IN_POT_REW"]
 
-                        # Log potting
-                        self.log_object_potting(events_infos, new_state, old_soup, soup, obj.name, player_idx)
-                        if obj.name == Recipe.ONION:
-                            events_infos['potting_onion'][player_idx] = True
+                            # Log potting
+                            self.log_object_potting(events_infos, new_state, old_soup, soup, obj.name, player_idx)
+                            if obj.name == Recipe.ONION:
+                                events_infos['potting_onion'][player_idx] = True
 
             elif terrain_type == 'S' and player.has_object():
-                obj = player.get_object()
-                if obj.name == 'soup':
-                    print('soup time')
-                    delivery_rew = self.deliver_soup(new_state, player, obj)
-                    sparse_reward[player_idx] += delivery_rew
+                index = 3 
+                if behave_adversarial and include_in[3]: 
+                    print(f'adversarial dish act')
+                    did_averse_action = True 
+                    # adversarial agent prevents dish action 
+                    if multi_dim_trust: 
+                        new_state.players[0].update_bayes("adversarial", did_averse_action)
+                    elif include_trust: 
+                        new_state.players[0].update_bayes("lazy", did_averse_action) # lazy is catch-all for any failure to complete task
+                        did_lazy_action = True 
 
-                    # Log soup delivery
-                    events_infos['soup_delivery'][player_idx] = True
+                    return sparse_reward, shaped_reward, [] 
+                
+                elif behave_lazy and player_idx == 1 and include_in[3]:
+                    did_lazy_action = True 
 
-        if multi_dim_trust: 
+                else: 
+                    obj = player.get_object()
+                    if obj.name == 'soup':
+                        print('soup time')
+                        delivery_rew = self.deliver_soup(new_state, player, obj)
+                        sparse_reward[player_idx] += delivery_rew
+
+                        # Log soup delivery
+                        events_infos['soup_delivery'][player_idx] = True
+
+        # angel: update to include 
+        if multi_dim_trust and player_idx == 1 and index != None: 
             new_state.players[0].update_bayes("adversarial", did_averse_action)
             new_state.players[0].update_bayes("lazy", did_lazy_action)
-        elif include_trust: 
+        elif include_trust and player_idx == 1 and index != None: 
             new_state.players[0].update_bayes("lazy", did_lazy_action)
         
         player_states.append(new_state.players[0])
@@ -2387,20 +2529,19 @@ class OvercookedGridworld(object):
 
             if include_trust: 
                 # Add bayes features here 
-                if (multi_dim_trust) and (include_trust): 
-                    all_features["p{}_lazy_trust".format(i)] = [player.trust_score_lazy]
-                    all_features["p{}_uncert_lazy".format(i)] = [player.uncertainty_lazy]
-                    all_features["p{}_lazy_alpha".format(i)] = [player.alpha_lazy]
-                    all_features["p{}_lazy_beta".format(i)] = [player.beta_lazy]
+                if (multi_dim_trust): 
+                    all_features["p{}_lazy_trust".format(i)] = player.trust_score_lazy
+                    all_features["p{}_uncert_lazy".format(i)] = player.uncertainty_lazy
+                    # all_features["p{}_lazy_alpha".format(i)] = [player.alpha_lazy]
+                    # all_features["p{}_lazy_beta".format(i)] = [player.beta_lazy]
                 
-                if (include_trust): 
-                    all_features["p{}_adv_trust".format(i)] = [player.trust_score_adversary]
-                    all_features["p{}_uncert_adver".format(i)] = [player.uncertainty_adversary]
-                    all_features["p{}_adv_alpha".format(i)] = [player.alpha_adversary]
-                    all_features["p{}_adv_beta".format(i)] = [player.beta_adversary]
+                all_features["p{}_adv_trust".format(i)] = player.trust_score_adversary
+                all_features["p{}_uncert_adver".format(i)] = player.uncertainty_adversary
+                # all_features["p{}_adv_alpha".format(i)] = [player.alpha_adversary]
+                # all_features["p{}_adv_beta".format(i)] = [player.beta_adversary]
 
             obj = player.held_object
-
+ 
             if obj is None:
                 held_obj_name = "none"
                 all_features["p{}_objs".format(i)] = np.zeros(len(IDX_TO_OBJ))

@@ -12,6 +12,34 @@ DEFAULT_ENV_PARAMS = {
 
 MAX_HORIZON = 1e10
 
+class Hyperparam: 
+    # set defaults here 
+	def ___init__(self): 
+		# include updated params here 
+        self.params = {
+            "alg_type": cfg.alg_type # "multiTravos" # [multiTravos, baseline, Travos]
+            "lazy_agent": cfg.lazy_agent
+            "adv_agent": cfg.adv_agent 
+            "both": cfg.both 
+            "advers_prob": cfg.advers_prob
+            "lazy_prob": cfg.lazy_prob
+            "discretize_trust": cfg.discretize_trust 
+            "adaptive_discretize": cfg.adaptive_discretize
+            "include_in": cfg.include_in
+            "one_hot_encode": cfg.one_hot_encode 
+            "include_thres": cfg.include_thres
+            "include_trust": True 
+            "multi_dim_trust": True 
+            "save_path_include": "" 
+        } 
+
+	def update_params(self, dict_of_vals):
+		# update relevant params here 
+		for item in dict_of_vals:
+            if item in self.params.keys():
+                self.params[item] = dict_of_vals[item] 
+
+
 class OvercookedEnv(object):
     """
     An environment wrapper for the OvercookedGridworld Markov Decision Process.
@@ -52,7 +80,7 @@ class OvercookedEnv(object):
     # INSTANTIATION METHODS #
     #########################
 
-    def __init__(self, mdp_generator_fn, start_state_fn=None, horizon=MAX_HORIZON, mlam_params=NO_COUNTERS_PARAMS, info_level=1, num_mdp=1, initial_info={}):
+    def __init__(self, mdp_generator_fn, start_state_fn=None, horizon=MAX_HORIZON, mlam_params=NO_COUNTERS_PARAMS, info_level=1, num_mdp=1, initial_info={}, config=None):
         """
         mdp_generator_fn (callable):    A no-argument function that returns a OvercookedGridworld instance
         start_state_fn (callable):      Function that returns start state for the MDP, called at each environment reset
@@ -101,7 +129,7 @@ class OvercookedEnv(object):
         return self._mp
 
     @staticmethod
-    def from_mdp(mdp, start_state_fn=None, horizon=MAX_HORIZON, mlam_params=NO_COUNTERS_PARAMS, info_level=1):
+    def from_mdp(mdp, start_state_fn=None, horizon=MAX_HORIZON, mlam_params=NO_COUNTERS_PARAMS, info_level=1, config=None):
         """
         Create an OvercookedEnv directly from a OvercookedGridworld mdp
         rather than a mdp generating function.
@@ -114,7 +142,8 @@ class OvercookedEnv(object):
             horizon=horizon,
             mlam_params=mlam_params,
             info_level=info_level,
-            num_mdp=1
+            num_mdp=1, 
+            config=config
         )
 
 
@@ -244,7 +273,7 @@ class OvercookedEnv(object):
         """
         return self.mdp.featurize_state(state, self.mlam, num_pots=num_pots) # self.horizon)
 
-    def reset(self, regen_mdp=True, outside_info={}):
+    def reset(self, regen_mdp=True, outside_info={}, config={}):
         """
         Resets the environment. Does NOT reset the agent.
         Args:
@@ -264,6 +293,9 @@ class OvercookedEnv(object):
             self.state = self.mdp.get_standard_start_state()
         else:
             self.state = self.start_state_fn()
+
+        # include self.state update info here .. 
+        self.state.hp.update_params(config)
 
         events_dict = { k : [ [] for _ in range(self.mdp.num_players) ] for k in EVENT_TYPES }
         rewards_dict = {

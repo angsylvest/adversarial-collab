@@ -24,8 +24,9 @@ class OverCookedEnv():
     
     def __init__(self,
                  scenario="tutorial_0",
-                 episode_length=200
-                 ):
+                 episode_length=200,
+                 config={}):
+
         super(OverCookedEnv, self).__init__()
     
         self.scenario = scenario
@@ -36,9 +37,10 @@ class OverCookedEnv():
         self.visualizer = StateVisualizer()
 
         self._available_actions = Action.ALL_ACTIONS
+        self.config = config
 
     def reset(self):
-        self.overcooked.reset()
+        self.overcooked.reset(config=self.config)
         return self._get_observation()
 
     def render(self, mode='rgb_array'):

@@ -37,7 +37,9 @@ class Workspace(object):
         self.discrete_action = cfg.discrete_action_space
         self.save_replay_buffer = cfg.save_replay_buffer
         # self.env = NormalizedEnv(make_env(cfg.env, discrete_action=self.discrete_action))
-        self.env = OverCookedEnv(scenario=self.cfg.env, episode_length=self.cfg.episode_length)
+        self.config_dict = self.create_config(self.cfg)
+
+        self.env = OverCookedEnv(scenario=self.cfg.env, episode_length=self.cfg.episode_length, config=self.config_dict)
 
         self.env_agent_types = get_agent_types(self.env)
         self.agent_indexes = find_index(self.env_agent_types, 'ally')
@@ -86,7 +88,55 @@ class Workspace(object):
         self.bayes_buffer = {"alpha_lazy": 1, "alpha_adv": 1, "beta_lazy": 1, "beta_adv": 1}
 
         # create relevant tensorboard params to record 
-        self.sw = SummaryWriter(log_dir=os.path.join(self.work_dir, f"../../../runs/{date_str}_experiment_{self.cfg.env}"))# SummaryWriter(log_dir=os.path.join(self.work_dir, 'runs'))
+        self.sw = SummaryWriter(log_dir=os.path.join(self.work_dir, f"../../../runs/{self.cfg.env}{save_path_include}/{date_str}_experiment_{self.cfg.env}_alg_{alg_type}_lazy_{lazy_agent, lazy_prob}_adver_{adv_agent, advers_prob}_include_{include_in}"))# SummaryWriter(log_dir=os.path.join(self.work_dir, 'runs'))
+
+    def create_config(self, cfg):
+        if not cfg: 
+            return {}
+
+        self.params = {
+            "alg_type": cfg.alg_type # "multiTravos" # [multiTravos, baseline, Travos]
+            "lazy_agent": cfg.lazy_agent
+            "adv_agent": cfg.adv_agent 
+            "both": cfg.both 
+            "advers_prob": cfg.advers_prob
+            "lazy_prob": cfg.lazy_prob
+            "discretize_trust": cfg.discretize_trust 
+            "adaptive_discretize": cfg.adaptive_discretize
+            "include_in": cfg.include_in
+            "one_hot_encode": cfg.one_hot_encode 
+            "include_thres": cfg.include_thres
+            "include_trust": True 
+            "multi_dim_trust": True 
+            "save_path_include": "" 
+        } 
+
+        if cfg.lazy_agent and cfg.adv_agent:
+            self.params["both"] = True 
+
+        alg_type = cfg.alg_type
+
+        if cfg.alg_type == "baseline": 
+            self.params["include_trust"] = False # True # Only TRAVOS
+            self.params["multi_dim_trust"] = False # True # For multi-TRAVOS
+        elif cfg.alg_type == "Travos": 
+            include_thres = False 
+            alg_type += f"_disc_{discretize_trust}_adapt_{adaptive_discretize}"
+            self.params["include_trust"] = True # True # Only TRAVOS
+            self.params["multi_dim_trust"] = False # True # For multi-TRAVOS    
+        else: 
+            alg_type += f"_disc_{discretize_trust}_adapt_{adaptive_discretize}_int_count_{include_thres}"
+            self.params["include_trust"] = True # True # Only TRAVOS
+            self.params["multi_dim_trust"] = True # True # For multi-TRAVOS    
+
+        if lazy_agent: 
+            self.params["save_path_include"] = f"_lazy_{lazy_prob}"
+
+        if adv_agent: 
+            self.params["save_path_include"] = f"_adv_{advers_prob}"
+
+        self.params["alg_type"] = alg_type 
+        return self.params
 
     def evaluate(self):
         average_episode_reward = 0
@@ -162,21 +212,21 @@ class Workspace(object):
                     self.logger.log('perf/episode', episode, self.step)
                     self.logger.log('perf/alpha_laz', self.env.overcooked.state.players[0].alpha_lazy, self.step)
                     self.logger.log('perf/beta_laz', self.env.overcooked.state.players[0].beta_lazy, self.step)
-                    self.logger.log('perf/trust_laz', self.env.overcooked.state.players[0].trust_score_lazy, self.step)
-                    self.logger.log('perf/uncert_laz', self.env.overcooked.state.players[0].uncertainty_lazy, self.step)
+                    self.logger.log('perf/trust_laz', self.env.overcooked.state.players[0].interaction_history["lazy_trust"], self.step)
+                    self.logger.log('perf/uncert_laz', self.env.overcooked.state.players[0].interaction_history["lazy_uncert"], self.step)
 
-                    self.sw.add_scalar("Trust/lazy", self.env.overcooked.state.players[0].trust_score_lazy, self.step)
-                    self.sw.add_scalar("Trust/lazy_uncert", self.env.overcooked.state.players[0].uncertainty_lazy, self.step)
+                    self.sw.add_scalar("Trust/lazy", self.env.overcooked.state.players[0].interaction_history["lazy_trust"], self.step)
+                    self.sw.add_scalar("Trust/lazy_uncert", self.env.overcooked.state.players[0].interaction_history["lazy_uncert"], self.step)
                     
                     if multi_dim_trust: 
                         self.logger.log('perf/episode', episode, self.step )
                         self.logger.log('perf/alpha_adv', self.env.overcooked.state.players[0].alpha_adversary, self.step)
                         self.logger.log('perf/beta_adv', self.env.overcooked.state.players[0].beta_adversary, self.step)
-                        self.logger.log('perf/trust_adv', self.env.overcooked.state.players[0].trust_score_adversary, self.step)
-                        self.logger.log('perf/uncert_adv', self.env.overcooked.state.players[0].uncertainty_adversary, self.step)
+                        self.logger.log('perf/trust_adv', self.env.overcooked.state.players[0].interaction_history["adv_trust"], self.step)
+                        self.logger.log('perf/uncert_adv', self.env.overcooked.state.players[0].interaction_history["adv_uncert"], self.step)
                 
-                        self.sw.add_scalar("Trust/adv", self.env.overcooked.state.players[0].trust_score_adversary, self.step)
-                        self.sw.add_scalar("Trust/adv_uncert", self.env.overcooked.state.players[0].uncertainty_adversary, self.step)
+                        self.sw.add_scalar("Trust/adv", self.env.overcooked.state.players[0].interaction_history["adv_trust"], self.step)
+                        self.sw.add_scalar("Trust/adv_uncert", self.env.overcooked.state.players[0].interaction_history["adv_uncert"], self.step)
                     
                     # print(f'curr interaction history: {self.env.overcooked.state.players[0].interaction_history}')
                     # self.sw.flush()
