@@ -13,6 +13,7 @@ adaptive_discretize = False
 include_in = [True, True, True, True]
 one_hot_encode = True 
 include_thres = True 
+sliding_window = False 
 
 # Trust related params 
 # Set both to False for general DDPG RL agent 

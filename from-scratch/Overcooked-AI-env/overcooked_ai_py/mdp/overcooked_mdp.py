@@ -8,6 +8,10 @@ import random
 from overcooked_ai_py.mdp.constants import *
 import math
 
+from trust_metrics.influence import *
+from trust_metrics.perf_based import *
+from trust_metrics.shannon_entropy import *
+
 class Hyperparam: 
     # set defaults here 
     def __init__(self): 
@@ -562,6 +566,39 @@ class PlayerState(object):
         self.position = tuple(position)
         self.orientation = tuple(orientation)
         self.held_object = held_object
+
+        # check type of trust perspective here .. 
+        self.trust_relevant_info = {
+            "total_reward_gained": None, 
+            "total_reward_potential": None, 
+            "lazy": None, 
+            "adversarial": None, 
+            "interaction_occured": None, # cooperative or not 
+        }
+
+        self.trust_metric = None 
+        self.sliding_window = sliding_window
+
+        # check alg type of update here 
+        if alg_type == "multiTravos": 
+            self.trust_metric = PerfBased(multi=True, sliding_window=sliding_window)
+        
+        elif alg_type == "Travos":
+            self.trust_metric = PerfBased(multi=False, sliding_window=sliding_window) 
+
+        elif alg_type == "ShannonEntropy":
+            self.trust_metric = ShannonEntropy(sliding_window=sliding_window) 
+
+        elif alg_type == "Vulnerability":
+            self.trust_metric = Influence(sliding_window=sliding_window, include_num_interactions=False) 
+
+        elif alg_type == "Vulnerability+Freq": 
+            self.trust_metric = Influence(sliding_window=sliding_window, include_num_interactions=True) 
+
+        else: # this is assuming baseline 
+            self.trust_metric = None  
+            print("Not using trust metric - verify that this is correct")
+
 
         # include trust metrics here in player state
         self.interaction_history = {}
@@ -1316,6 +1353,11 @@ class OvercookedGridworld(object):
         behave_lazy = False 
         did_lazy_action = False 
 
+        relevant_trust_info = new_state.players[0].trust_relevant_info
+
+        if is_close_enough(rl_agent_pos, adv_agent_pos):
+            relevant_trust_info["interaction_occured"] = True 
+
         if both: 
             # Randomly decide whether to behave adversarially or lazily if both are possible
             if random.random() < 0.5:  # 50% chance to pick one of the behaviors
@@ -1345,6 +1387,7 @@ class OvercookedGridworld(object):
         for player_idx, (player, action) in enumerate(zip(new_state.players, joint_action)):
             
             if player_idx == 1 and behave_adversarial: # only execute RL agent behavior since adversarial action is also done here too
+                relevant_trust_info["adversarial"] = True 
                 continue 
 
             if action != Action.INTERACT:
@@ -1388,6 +1431,9 @@ class OvercookedGridworld(object):
 
             elif terrain_type == 'D' and player.held_object is None:
                 index = 0 
+                if self.is_dish_pickup_useful(new_state, pot_states) and player_idx == 0:
+                    relevant_trust_info["total_reward_potential"] = self.reward_shaping_params["DISH_PICKUP_REWARD"]
+                
                 if behave_adversarial and include_in[0]: 
                     print(f'adversarial dish act')
                     did_averse_action = True 
@@ -1402,6 +1448,7 @@ class OvercookedGridworld(object):
                 
                 elif behave_lazy and player_idx == 1 and include_in[0]:
                     did_lazy_action = True 
+                    relevant_trust_info["lazy"] = True 
                 
                 else: 
                     # print('not lazy dish act')
@@ -1423,8 +1470,10 @@ class OvercookedGridworld(object):
                     soup.begin_cooking()
 
             elif terrain_type == 'P' and player.has_object():
-                if player.get_object().name == 'dish' and self.soup_ready_at_location(new_state, i_pos):
+                if player.get_object().name == 'dish' and self.soup_ready_at_location(new_state, i_pos) and player_idx == 0:
                     index = 1 
+                    relevant_trust_info["total_reward_potential"] = self.reward_shaping_params["SOUP_PICKUP_REWARD"]
+
                     if behave_adversarial and include_in[1]: 
                         did_averse_action = True 
                         # adversarial agent prevents dish action 
@@ -1438,6 +1487,7 @@ class OvercookedGridworld(object):
 
                     elif behave_lazy and player_idx == 1 and include_in[1]:
                         did_lazy_action = True 
+                        relevant_trust_info["lazy"] = True 
 
                     else: 
                         self.log_object_pickup(events_infos, new_state, "soup", pot_states, player_idx)
@@ -1450,6 +1500,10 @@ class OvercookedGridworld(object):
 
                 elif player.get_object().name in Recipe.ALL_INGREDIENTS:
                     index = 2
+
+                    if player_idx == 0: 
+                        relevant_trust_info["total_reward_potential"] = self.reward_shaping_params["PLACEMENT_IN_POT_REW"]
+                    
                     # Adding ingredient to soup
                     if behave_adversarial and include_in[2]: 
                         print(f'adversarial dish act')
@@ -1465,6 +1519,7 @@ class OvercookedGridworld(object):
                 
                     elif behave_lazy and player_idx == 1 and include_in[2]:
                         did_lazy_action = True 
+                        relevant_trust_info["lazy"] = True 
                     
                     else: 
                         if not new_state.has_object(i_pos):
@@ -1486,6 +1541,10 @@ class OvercookedGridworld(object):
 
             elif terrain_type == 'S' and player.has_object():
                 index = 3 
+                obj = player.get_object()
+                if obj.name == 'soup' and player_idx == 0:
+                    relevant_trust_info["total_reward_potential"] = self.get_recipe_value(new_state, obj)
+
                 if behave_adversarial and include_in[3]: 
                     print(f'adversarial dish act')
                     did_averse_action = True 
@@ -1500,6 +1559,7 @@ class OvercookedGridworld(object):
                 
                 elif behave_lazy and player_idx == 1 and include_in[3]:
                     did_lazy_action = True 
+                    relevant_trust_info["lazy"] = True 
 
                 else: 
                     obj = player.get_object()
@@ -1517,8 +1577,11 @@ class OvercookedGridworld(object):
             new_state.players[0].update_bayes("lazy", did_lazy_action)
         elif include_trust and player_idx == 1 and index != None: 
             new_state.players[0].update_bayes("lazy", did_lazy_action)
+            relevant_trust_info["total_reward_gained"] = shaped_reward[0]
         
         player_states.append(new_state.players[0])
+
+
 
         return sparse_reward, shaped_reward, player_states
 
