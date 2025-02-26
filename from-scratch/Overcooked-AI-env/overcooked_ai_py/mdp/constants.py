@@ -1,6 +1,6 @@
 import math 
 
-alg_type = "Vulnerability" # "multiTravos" # [multiTravos, baseline, Travos]
+alg_type = "ShannonEntropy" # "multiTravos" # [multiTravos, baseline, Travos]
 lazy_agent = True
 adv_agent = False 
 both = False 
@@ -13,7 +13,7 @@ adaptive_discretize = False
 include_in = [True, True, True, True]
 one_hot_encode = True 
 include_thres = True 
-sliding_window = False 
+sliding_window = True 
 
 # Trust related params 
 # Set both to False for general DDPG RL agent 

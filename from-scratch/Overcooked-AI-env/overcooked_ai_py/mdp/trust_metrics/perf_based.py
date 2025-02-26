@@ -8,17 +8,38 @@ class PerfBased:
     def __init__(self, multi=False, sliding_window=False):
         self.sliding_window = sliding_window 
         self.num_collected = 0 
+        self.multi = multi
         # if not using sliding window, will just average everything 
         # if using sliding window, will only average most recent 100 
 
         if self.sliding_window: 
-            self.window = deque(maxlen=100)
+            if not multi: 
+                self.trust = deque(maxlen=100)
+
+            else: 
+                self.trust_lazy = deque(maxlen=100)
+                self.trust_adversarial = deque(maxlen=100)
 
     def update(self, interact_info):
         lazy = interact_info["lazy"]
         adversarial = interact_info["adversarial"]
 
         # use to calc trust + uncertainity
+        if self.multi: 
+            if lazy: 
+                self.trust_lazy.append(1) 
+            if not lazy: 
+                self.trust_lazy.append(0) 
+            if adversarial: 
+                self.trust_adversarial.append(1)  
+            if not adversarial: 
+                self.trust_adversarial.append(0)
+
+        else: 
+            if lazy or adversarial:
+                self.trust_lazy.append(1) 
+            else: 
+                self.trust_lazy.append(0) 
 
     def one_hot(self, index, num_bins):
         """

@@ -6,25 +6,24 @@ import math
 class ShannonEntropy: 
     # update to include params relevant to keep track of 
 
-    def __init__(self, sliding_window=False, num_collected=None, window = None, num_unexpected=None):
+    def __init__(self, sliding_window=True, num_collected=None, window = None, num_unexpected=None):
         self.sliding_window = sliding_window 
         
-        if self.num_collected:
-            self.num_collected = num_collected 
-        else: 
+        if num_collected is None:
             self.num_collected = 0 
-        
-        if num_collected: 
-            self.num_unexpected = num_unexpected
         else: 
-            self.num_unexpected = 0 
+            self.num_collected = num_collected 
+        
+        if num_unexpected is None: 
+            self.num_unexpected = 0
+        else: 
+            self.num_unexpected = num_collected 
 
         if self.sliding_window: 
-            if not window: 
+            if window is None: 
                 self.window = deque(maxlen=100)
             else: 
                 self.window = window
-
 
         self.entropy = self.adaptively_discretize_trust(self.calc_entropy())
         
