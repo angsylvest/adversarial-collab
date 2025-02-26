@@ -1,0 +1,56 @@
+defaults:
+    - agent: maddpg
+
+# Experiment Settings
+env: cramped_room_tomato # asymmetric_advantages # asymmetric_advantages # asymmetric_advantages # coordination_ring # cramped_room
+episode_length: 500
+discrete_action_space: true
+
+experiment: vanilla
+seed: 0
+num_seed_steps: 10000
+
+num_train_steps: 1e7 # 1e6
+replay_buffer_capacity: 5e4
+
+eval_frequency: 10000
+num_eval_episodes: 3
+
+common_reward: true
+
+ou_exploration_steps: ${num_train_steps}
+ou_init_scale: 0.3
+ou_final_scale: 0
+adversarial: Trues
+
+device: cpu 
+#cuda
+
+# Logging Settings
+log_frequency: 5000
+log_save_tb: true
+save_video: true
+render: false
+
+# Save Buffer
+save_model: false
+save_replay_buffer: false
+
+# env relevant params (could be overwritten)
+alg_type: multiTravos # "multiTravos" # [multiTravos, baseline, Travos]
+lazy_agent: True
+adv_agent: True 
+both: False 
+advers_prob: 0.5
+lazy_prob: 0.5
+discretize_trust: True 
+adaptive_discretize: False
+include_in: [True, True, True, True]
+one_hot_encode: True 
+include_thres: True 
+# ---------------------------
+
+# hydra configuration
+hydra:
+    run:
+        dir: ./experiment/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}
