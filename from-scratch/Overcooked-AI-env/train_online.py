@@ -22,10 +22,13 @@ import datetime
 
 class Workspace(object):
     def __init__(self, cfg):
-        self.work_dir = os.getcwd()
+        # self.work_dir = os.getcwd()
+        self.cfg = cfg
+        date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        # update work_dir so constants are included in naming conventions
+        self.work_dir = os.path.join(os.getcwd(), f"../../{self.cfg.env}{save_path_include}/{date_str}_experiment_{self.cfg.env}_alg_{alg_type}_lazy_{lazy_agent, lazy_prob}_adver_{adv_agent, advers_prob}_include_{include_in}")
         print(f'Workspace: {self.work_dir}')
 
-        self.cfg = cfg
 
         self.logger = Logger(self.work_dir,
                              save_tb=cfg.log_save_tb,
@@ -47,7 +50,7 @@ class Workspace(object):
         self.adversary_indexes = find_index(self.env_agent_types, 'adversary')
 
         self.adversarial = cfg.adversarial 
-        date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
 
         # OU Noise settings
         self.num_seed_steps = cfg.num_seed_steps

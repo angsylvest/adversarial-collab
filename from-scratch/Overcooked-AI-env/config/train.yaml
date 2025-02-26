@@ -50,7 +50,7 @@ one_hot_encode: True
 include_thres: True 
 # ---------------------------
 
-# hydra configuration
-hydra:
-    run:
-        dir: ./experiment/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}
+# # hydra configuration
+# hydra:
+#     run:
+#         dir: ./experiment/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}
