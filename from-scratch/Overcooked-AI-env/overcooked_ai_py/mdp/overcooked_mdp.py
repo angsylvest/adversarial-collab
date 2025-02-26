@@ -2703,12 +2703,13 @@ class OvercookedGridworld(object):
                     # all_features["p{}_adv_beta".format(i)] = [player.beta_adversary]
 
                 elif alg_type == "ShannonEntropy":
-                    pass
+                    all_features["p{}_entropy".format(i)] = player.trust_metric.entropy
 
                 elif alg_type == "Vulnerability":
-                    all_features["p{}_entropy".format(i)] = player.trust_metric.influence_score 
+                    all_features["p{}_influence".format(i)] = player.trust_metric.influence_score 
 
                 elif alg_type == "Vulnerability+Freq": 
+                    all_features["p{}_influence".format(i)] = player.trust_metric.influence_score 
                     all_features["p{}_interaction".format(i)] = player.trust_metric.interaction_score  
 
             obj = player.held_object

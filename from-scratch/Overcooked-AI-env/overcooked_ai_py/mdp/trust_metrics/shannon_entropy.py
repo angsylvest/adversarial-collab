@@ -1,6 +1,7 @@
 from collections import deque
 from overcooked_ai_py.mdp.constants import *
 import numpy as np 
+import math 
 
 class ShannonEntropy: 
     # update to include params relevant to keep track of 
@@ -23,6 +24,9 @@ class ShannonEntropy:
                 self.window = deque(maxlen=100)
             else: 
                 self.window = window
+
+
+        self.entropy = self.adaptively_discretize_trust(self.calc_entropy())
         
         # if not using sliding window, will just average everything 
         # if using sliding window, will only average most recent 100
@@ -38,6 +42,8 @@ class ShannonEntropy:
             self.window.append("expected")
 
         self.num_collected += 1
+        
+        self.entropy = self.adaptively_discretize_trust(self.calc_entropy())
         
         # might be able to split into entropy of each as well .. 
 
@@ -66,6 +72,22 @@ class ShannonEntropy:
             
         else: 
             return index
+        
+    def calc_entropy(self): 
+        if not self.window:
+            return 0  # Avoid log(0) issues when the window is empty
+        
+        prob_stable = self.window.count("expected") / len(self.window)
+        prob_unstable = 1 - prob_stable  # Probability of acting unexpectedly
+
+        # Avoid log(0) issues by only computing entropy for nonzero probabilities
+        entropy = 0
+        if prob_stable > 0:
+            entropy -= prob_stable * math.log2(prob_stable)
+        if prob_unstable > 0:
+            entropy -= prob_unstable * math.log2(prob_unstable)
+
+        return entropy
     
     def to_dict(self, pos, orientation, held_obj):
         # update obs space 
