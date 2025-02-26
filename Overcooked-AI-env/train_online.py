@@ -86,7 +86,7 @@ class Workspace(object):
         self.step = 0
 
         self.players = self.env.overcooked.state.players
-        self.bayes_buffer = {"alpha_lazy": 1, "alpha_adv": 1, "beta_lazy": 1, "beta_adv": 1}
+        # self.bayes_buffer = {"alpha_lazy": 1, "alpha_adv": 1, "beta_lazy": 1, "beta_adv": 1}
 
         # create relevant tensorboard params to record 
         self.sw = SummaryWriter(log_dir=os.path.join(self.work_dir, f"../../../runs/{self.cfg.env}{save_path_include}/{date_str}_experiment_{self.cfg.env}_alg_{alg_type}_lazy_{lazy_agent, lazy_prob}_adver_{adv_agent, advers_prob}_include_{include_in}"))# SummaryWriter(log_dir=os.path.join(self.work_dir, 'runs'))

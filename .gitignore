@@ -8,3 +8,6 @@ Overcooked-AI/
 runs/ 
 ./runs/
 unused/
+trains/
+Overcooked-AI-env/*.out
+from-scratch/Overcooked-AI-env/outputs/*

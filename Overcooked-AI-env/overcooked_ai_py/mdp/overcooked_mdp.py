@@ -8,6 +8,7 @@ import random
 from overcooked_ai_py.mdp.constants import *
 import math
 
+
 class Hyperparam: 
     # set defaults here 
     def __init__(self): 
@@ -716,6 +717,9 @@ class PlayerState(object):
     def deepcopy(self):
         new_obj = None if self.held_object is None else self.held_object.deepcopy()
         player_state = PlayerState(self.position, self.orientation, new_obj)
+        
+        # angel: update relevant params here 
+        # ensure that type is maintained here 
         player_state.alpha_adversary = self.alpha_adversary
         player_state.beta_adversary = self.beta_adversary
         player_state.alpha_lazy = self.alpha_lazy
@@ -741,6 +745,7 @@ class PlayerState(object):
             "position": self.position,
             "orientation": self.orientation,
             "held_object": self.held_object.to_dict() if self.held_object is not None else None,
+            # angel update relevant params here 
             "alpha_adversary": self.alpha_adversary, 
             "beta_adversary": self.beta_adversary, 
             "alpha_lazy": self.alpha_lazy, 
@@ -779,7 +784,7 @@ class OvercookedState(object):
         self._bonus_orders = bonus_orders
         self._all_orders = all_orders
         self.timestep = timestep
-        self.hp = Hyperparam()
+        # self.hp = Hyperparam()
 
         # update availability of info to players .. 
 
