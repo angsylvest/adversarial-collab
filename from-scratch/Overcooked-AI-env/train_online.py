@@ -215,25 +215,25 @@ class Workspace(object):
                 self.sw.add_scalar("Reward/train", episode_reward, self.step)
 
                 # angel: add custom logger info here 
-                if include_trust: 
-                    self.logger.log('perf/episode', episode, self.step)
-                    self.logger.log('perf/alpha_laz', self.env.overcooked.state.players[0].alpha_lazy, self.step)
-                    self.logger.log('perf/beta_laz', self.env.overcooked.state.players[0].beta_lazy, self.step)
-                    self.logger.log('perf/trust_laz', self.env.overcooked.state.players[0].interaction_history["lazy_trust"], self.step)
-                    self.logger.log('perf/uncert_laz', self.env.overcooked.state.players[0].interaction_history["lazy_uncert"], self.step)
+                # if include_trust: 
+                #     self.logger.log('perf/episode', episode, self.step)
+                #     self.logger.log('perf/alpha_laz', self.env.overcooked.state.players[0].alpha_lazy, self.step)
+                #     self.logger.log('perf/beta_laz', self.env.overcooked.state.players[0].beta_lazy, self.step)
+                #     self.logger.log('perf/trust_laz', self.env.overcooked.state.players[0].interaction_history["lazy_trust"], self.step)
+                #     self.logger.log('perf/uncert_laz', self.env.overcooked.state.players[0].interaction_history["lazy_uncert"], self.step)
 
-                    self.sw.add_scalar("Trust/lazy", self.env.overcooked.state.players[0].interaction_history["lazy_trust"], self.step)
-                    self.sw.add_scalar("Trust/lazy_uncert", self.env.overcooked.state.players[0].interaction_history["lazy_uncert"], self.step)
+                #     self.sw.add_scalar("Trust/lazy", self.env.overcooked.state.players[0].interaction_history["lazy_trust"], self.step)
+                #     self.sw.add_scalar("Trust/lazy_uncert", self.env.overcooked.state.players[0].interaction_history["lazy_uncert"], self.step)
                     
-                    if multi_dim_trust: 
-                        self.logger.log('perf/episode', episode, self.step )
-                        self.logger.log('perf/alpha_adv', self.env.overcooked.state.players[0].alpha_adversary, self.step)
-                        self.logger.log('perf/beta_adv', self.env.overcooked.state.players[0].beta_adversary, self.step)
-                        self.logger.log('perf/trust_adv', self.env.overcooked.state.players[0].interaction_history["adv_trust"], self.step)
-                        self.logger.log('perf/uncert_adv', self.env.overcooked.state.players[0].interaction_history["adv_uncert"], self.step)
+                #     if multi_dim_trust: 
+                #         self.logger.log('perf/episode', episode, self.step )
+                #         self.logger.log('perf/alpha_adv', self.env.overcooked.state.players[0].alpha_adversary, self.step)
+                #         self.logger.log('perf/beta_adv', self.env.overcooked.state.players[0].beta_adversary, self.step)
+                #         self.logger.log('perf/trust_adv', self.env.overcooked.state.players[0].interaction_history["adv_trust"], self.step)
+                #         self.logger.log('perf/uncert_adv', self.env.overcooked.state.players[0].interaction_history["adv_uncert"], self.step)
                 
-                        self.sw.add_scalar("Trust/adv", self.env.overcooked.state.players[0].interaction_history["adv_trust"], self.step)
-                        self.sw.add_scalar("Trust/adv_uncert", self.env.overcooked.state.players[0].interaction_history["adv_uncert"], self.step)
+                #         self.sw.add_scalar("Trust/adv", self.env.overcooked.state.players[0].interaction_history["adv_trust"], self.step)
+                #         self.sw.add_scalar("Trust/adv_uncert", self.env.overcooked.state.players[0].interaction_history["adv_uncert"], self.step)
                     
                     # print(f'curr interaction history: {self.env.overcooked.state.players[0].interaction_history}')
                     # self.sw.flush()

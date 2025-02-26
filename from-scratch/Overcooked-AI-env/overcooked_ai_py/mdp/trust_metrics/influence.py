@@ -3,17 +3,24 @@ import numpy as np
 from overcooked_ai_py.mdp.constants import *
 
 class Influence: 
-    # update to include params relevant to keep track of 
 
-    def __init__(self, include_num_interactions=False, sliding_window=False, total_window=None, potential_window=None,interaction=None ):
+    # TODO: only using sliding window ..
+    def __init__(self, include_num_interactions=False, sliding_window=True, total_window=None, potential_window=None,interaction=None, influence_calc=None, reward_loss=None, num_collected=None ):
 
         self.include_num_interactions = include_num_interactions 
-
         self.sliding_window = sliding_window 
-        self.num_collected = 0 
+        
+        if not num_collected: 
+            self.num_collected = 0 
+        else: 
+            self.num_collected = num_collected
 
-        self.influence_calc = 0 
-        self.reward_loss = 0 
+        if not influence_calc and not reward_loss: 
+            self.influence_calc = 0 
+            self.reward_loss = 0 
+        else: 
+            self.influence_calc = influence_calc
+            self.reward_loss = reward_loss
         # if not using sliding window, will just average everything 
         # if using sliding window, will only average most recent 100
 
@@ -27,6 +34,9 @@ class Influence:
                 self.potential_window = potential_window
                 self.interaction = interaction
 
+        # influence relevant data .. 
+        self.influence_score = self.adaptively_discretize_trust(self.calc_influence())
+        self.interaction_score = self.adaptively_discretize_trust(self.calc_influence())
 
 
     def update(self, interact_info):
@@ -43,6 +53,11 @@ class Influence:
             else: 
                 self.interaction.append(0)
 
+            # influence relevant data .. 
+            self.influence_score = self.adaptively_discretize_trust(self.calc_influence())
+            self.interaction_score = self.adaptively_discretize_trust(self.calc_influence())
+
+            # print(f'influence score: {len(self.total_window)}')
     
     def one_hot(self, index, num_bins):
         """
@@ -69,11 +84,26 @@ class Influence:
             
         else: 
             return index
-         
 
     def calc_influence(self): 
-        # include interaction info if necessary 
-        pass 
+        if not self.total_window or not self.potential_window:
+            return 0  # Avoid division by zero if no data is present
+
+        if self.sliding_window: 
+            # include interaction info if necessary 
+            avg_total = sum(self.total_window) / len(self.total_window)
+            avg_potential = sum(self.potential_window) / len(self.potential_window)
+            
+            if avg_total + avg_potential == 0:
+                return 0  # Avoid division by zero if both averages are zero
+            
+            percent_diff = abs(avg_total - avg_potential) / ((avg_total + avg_potential) / 2) * 100
+            return percent_diff
+        
+
+    def calc_interaction(self): 
+        count_stable = self.interaction.count_instances(1) 
+        return count_stable / len(count_stable)
 
     def to_dict(self, pos, orientation, held_obj):
         # update obs space 

@@ -1,6 +1,6 @@
 import math 
 
-alg_type = "Travos" # "multiTravos" # [multiTravos, baseline, Travos]
+alg_type = "Vulnerability" # "multiTravos" # [multiTravos, baseline, Travos]
 lazy_agent = True
 adv_agent = False 
 both = False 
@@ -20,6 +20,9 @@ sliding_window = False
 if alg_type == "baseline": 
     include_trust = False # True # Only TRAVOS
     multi_dim_trust = False # True # For multi-TRAVOS
+elif alg_type == "Vulnerability" or alg_type == "ShannonEntropy" or alg_type == "Vulnerability+Freq":
+    include_trust = True 
+    multi_dim_trust = False
 elif alg_type == "Travos": 
     include_thres = False 
     alg_type += f"_disc_{discretize_trust}_adapt_{adaptive_discretize}"
