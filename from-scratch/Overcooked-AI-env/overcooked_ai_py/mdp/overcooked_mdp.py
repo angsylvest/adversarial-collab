@@ -580,47 +580,53 @@ class PlayerState(object):
         self.sliding_window = sliding_window
 
         # check alg type of update here 
-        if alg_type == "multiTravos": 
-            self.trust_metric = PerfBased(multi=True, sliding_window=sliding_window)
         
-        elif alg_type == "Travos":
-            self.trust_metric = PerfBased(multi=False, sliding_window=sliding_window) 
+        if alg_type == "multiTravos" or alg_type == "Travos":
+        
+            # include trust metrics here in player state
+            self.interaction_history = {}
+
+            self.alpha_adversary = 1  # Initial alpha (trust)
+            self.beta_adversary = 1   # Initial beta (distrust)
+            self.trust_score_adversary = self.adaptively_discretize_trust(self.alpha_adversary / (self.alpha_adversary + self.beta_adversary))  # Initial trust score (mean of Beta)
+            self.uncertainty_adversary = self.adaptively_discretize_trust(self.calculate_uncertainty(self.alpha_adversary , self.beta_adversary))  # Initial uncertainty (variance of Beta)
+
+            self.alpha_lazy = 1  # Initial alpha (trust)
+            self.beta_lazy = 1   # Initial beta (distrust)
+            self.trust_score_lazy= self.adaptively_discretize_trust(self.alpha_lazy  / (self.alpha_lazy  + self.beta_lazy))  # Initial trust score (mean of Beta)
+            self.uncertainty_lazy = self.adaptively_discretize_trust(self.calculate_uncertainty(self.alpha_lazy, self.beta_lazy))  # Initial uncertainty (variance of Beta)
+
+            self.interaction_history["adv_trust"] = self.alpha_adversary / (self.alpha_adversary + self.beta_adversary)
+            self.interaction_history["adv_uncert"] = self.calculate_uncertainty(self.alpha_adversary , self.beta_adversary)
+            self.interaction_history["lazy_trust"] = self.alpha_lazy  / (self.alpha_lazy  + self.beta_lazy)
+            self.interaction_history["lazy_uncert"] = self.calculate_uncertainty(self.alpha_lazy, self.beta_lazy)
+            
+            self.reset_threshold = 100  # Threshold to reset (can be adjusted)
+            self.interaction_count = 0  # Track the number of interactions
+            self.include_threshold = include_thres 
+            
+            # if alg_type == "multiTravos": 
+            #     self.trust_metric = PerfBased(multi=True, sliding_window=sliding_window)
+
+            # else:
+            #     self.trust_metric = PerfBased(multi=False, sliding_window=sliding_window) 
 
         elif alg_type == "ShannonEntropy":
+            
             self.trust_metric = ShannonEntropy(sliding_window=sliding_window) 
+            # determine rel params 
 
         elif alg_type == "Vulnerability":
             self.trust_metric = Influence(sliding_window=sliding_window, include_num_interactions=False) 
+            # determine rel params 
 
         elif alg_type == "Vulnerability+Freq": 
             self.trust_metric = Influence(sliding_window=sliding_window, include_num_interactions=True) 
+            # determine rel params 
 
         else: # this is assuming baseline 
             self.trust_metric = None  
             print("Not using trust metric - verify that this is correct")
-
-
-        # include trust metrics here in player state
-        self.interaction_history = {}
-
-        self.alpha_adversary = 1  # Initial alpha (trust)
-        self.beta_adversary = 1   # Initial beta (distrust)
-        self.trust_score_adversary = self.adaptively_discretize_trust(self.alpha_adversary / (self.alpha_adversary + self.beta_adversary))  # Initial trust score (mean of Beta)
-        self.uncertainty_adversary = self.adaptively_discretize_trust(self.calculate_uncertainty(self.alpha_adversary , self.beta_adversary))  # Initial uncertainty (variance of Beta)
-
-        self.alpha_lazy = 1  # Initial alpha (trust)
-        self.beta_lazy = 1   # Initial beta (distrust)
-        self.trust_score_lazy= self.adaptively_discretize_trust(self.alpha_lazy  / (self.alpha_lazy  + self.beta_lazy))  # Initial trust score (mean of Beta)
-        self.uncertainty_lazy = self.adaptively_discretize_trust(self.calculate_uncertainty(self.alpha_lazy, self.beta_lazy))  # Initial uncertainty (variance of Beta)
-
-        self.interaction_history["adv_trust"] = self.alpha_adversary / (self.alpha_adversary + self.beta_adversary)
-        self.interaction_history["adv_uncert"] = self.calculate_uncertainty(self.alpha_adversary , self.beta_adversary)
-        self.interaction_history["lazy_trust"] = self.alpha_lazy  / (self.alpha_lazy  + self.beta_lazy)
-        self.interaction_history["lazy_uncert"] = self.calculate_uncertainty(self.alpha_lazy, self.beta_lazy)
-        
-        self.reset_threshold = 100  # Threshold to reset (can be adjusted)
-        self.interaction_count = 0  # Track the number of interactions
-        self.include_threshold = include_thres 
 
         assert self.orientation in Direction.ALL_DIRECTIONS
         if self.held_object is not None:
@@ -637,6 +643,12 @@ class PlayerState(object):
         self.alpha_adversary = 1  # Initial alpha (trust)
         self.beta_adversary = 1   # Initial beta (distrust)
 
+    
+    def update_trust_info(self, trust_dict): 
+        # return dict with updated info 
+
+        # update 
+        pass 
     
     def update_bayes(self, type, success=False):
         self.interaction_count += 1
@@ -753,11 +765,27 @@ class PlayerState(object):
     def deepcopy(self):
         new_obj = None if self.held_object is None else self.held_object.deepcopy()
         player_state = PlayerState(self.position, self.orientation, new_obj)
-        player_state.alpha_adversary = self.alpha_adversary
-        player_state.beta_adversary = self.beta_adversary
-        player_state.alpha_lazy = self.alpha_lazy
-        player_state.beta_lazy = self.beta_lazy
-        player_state.interaction_count = self.interaction_count
+        
+        if alg_type == "multiTravos" or alg_type == "Travos": 
+            player_state.alpha_adversary = self.alpha_adversary
+            player_state.beta_adversary = self.beta_adversary
+            player_state.alpha_lazy = self.alpha_lazy
+            player_state.beta_lazy = self.beta_lazy
+            player_state.interaction_count = self.interaction_count
+            
+        elif alg_type == "ShannonEntropy":
+            pass 
+
+        elif alg_type == "Vulnerability":
+            pass 
+
+        elif alg_type == "Vulnerability+Freq": 
+            pass 
+
+        # angel: might need to be elaborated .. 
+        # player_state.trust_metric = self.trust_metric 
+        # player_state.trust_relevant_info = self.trust_relevant_info
+
         return player_state # PlayerState(self.position, self.orientation, new_obj)
 
     def __eq__(self, other):
@@ -774,7 +802,10 @@ class PlayerState(object):
             self.position, self.orientation, str(self.held_object))
 
     def to_dict(self):
-        return {
+        
+        # check alg type of update here 
+        if alg_type == "multiTravos": 
+            return {
             "position": self.position,
             "orientation": self.orientation,
             "held_object": self.held_object.to_dict() if self.held_object is not None else None,
@@ -782,7 +813,60 @@ class PlayerState(object):
             "beta_adversary": self.beta_adversary, 
             "alpha_lazy": self.alpha_lazy, 
             "beta_lazy": self.beta_lazy
-        }
+            }
+        
+        elif alg_type == "Travos":
+            return {
+            "position": self.position,
+            "orientation": self.orientation,
+            "held_object": self.held_object.to_dict() if self.held_object is not None else None,
+            "alpha_adversary": self.alpha_adversary, 
+            "beta_adversary": self.beta_adversary, 
+            "alpha_lazy": self.alpha_lazy, 
+            "beta_lazy": self.beta_lazy
+            }
+
+        elif alg_type == "ShannonEntropy":
+            pass 
+            # return {
+            # "position": self.position,
+            # "orientation": self.orientation,
+            # "held_object": self.held_object.to_dict() if self.held_object is not None else None,
+            # "beta_adversary": self.beta_adversary, 
+            # "alpha_lazy": self.alpha_lazy, 
+            # "beta_lazy": self.beta_lazy
+            # }
+        
+        elif alg_type == "Vulnerability":
+            pass
+            # return {
+            # "position": self.position,
+            # "orientation": self.orientation,
+            # "held_object": self.held_object.to_dict() if self.held_object is not None else None,
+            # "alpha_adversary": self.alpha_adversary, 
+            # "beta_adversary": self.beta_adversary, 
+            # "alpha_lazy": self.alpha_lazy, 
+            # "beta_lazy": self.beta_lazy
+            # }
+        
+        elif alg_type == "Vulnerability+Freq": 
+            pass
+            # return {
+            # "position": self.position,
+            # "orientation": self.orientation,
+            # "held_object": self.held_object.to_dict() if self.held_object is not None else None,
+            # "alpha_adversary": self.alpha_adversary, 
+            # "beta_adversary": self.beta_adversary, 
+            # "alpha_lazy": self.alpha_lazy, 
+            # "beta_lazy": self.beta_lazy
+            # }
+        
+        else: 
+            return {
+                "position": self.position,
+                "orientation": self.orientation,
+                "held_object": self.held_object.to_dict() if self.held_object is not None else None,
+            }
 
     @staticmethod
     def from_dict(player_dict):
@@ -1578,6 +1662,8 @@ class OvercookedGridworld(object):
         elif include_trust and player_idx == 1 and index != None: 
             new_state.players[0].update_bayes("lazy", did_lazy_action)
             relevant_trust_info["total_reward_gained"] = shaped_reward[0]
+
+            new_state.players[0].update_trust_info(relevant_trust_info)
         
         player_states.append(new_state.players[0])
 
@@ -2592,16 +2678,26 @@ class OvercookedGridworld(object):
 
             if include_trust: 
                 # Add bayes features here 
-                if (multi_dim_trust): 
-                    all_features["p{}_lazy_trust".format(i)] = player.trust_score_lazy
-                    all_features["p{}_uncert_lazy".format(i)] = player.uncertainty_lazy
-                    # all_features["p{}_lazy_alpha".format(i)] = [player.alpha_lazy]
-                    # all_features["p{}_lazy_beta".format(i)] = [player.beta_lazy]
-                
-                all_features["p{}_adv_trust".format(i)] = player.trust_score_adversary
-                all_features["p{}_uncert_adver".format(i)] = player.uncertainty_adversary
-                # all_features["p{}_adv_alpha".format(i)] = [player.alpha_adversary]
-                # all_features["p{}_adv_beta".format(i)] = [player.beta_adversary]
+                if alg_type == "Travos" or alg_type == "multiTravos": 
+                    if (multi_dim_trust): 
+                        all_features["p{}_lazy_trust".format(i)] = player.trust_score_lazy
+                        all_features["p{}_uncert_lazy".format(i)] = player.uncertainty_lazy
+                        # all_features["p{}_lazy_alpha".format(i)] = [player.alpha_lazy]
+                        # all_features["p{}_lazy_beta".format(i)] = [player.beta_lazy]
+                    
+                    all_features["p{}_adv_trust".format(i)] = player.trust_score_adversary
+                    all_features["p{}_uncert_adver".format(i)] = player.uncertainty_adversary
+                    # all_features["p{}_adv_alpha".format(i)] = [player.alpha_adversary]
+                    # all_features["p{}_adv_beta".format(i)] = [player.beta_adversary]
+
+                elif alg_type == "ShannonEntropy":
+                    pass 
+
+                elif alg_type == "Vulnerability":
+                    pass
+
+                elif alg_type == "Vulnerability+Freq": 
+                    pass 
 
             obj = player.held_object
  
