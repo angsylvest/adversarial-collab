@@ -796,6 +796,9 @@ class PlayerState(object):
             player_state.alpha_lazy = self.alpha_lazy
             player_state.beta_lazy = self.beta_lazy
             player_state.interaction_count = self.interaction_count
+
+            # for sliding window 
+            player_state.trust_metric = self.trust_metric
             
         elif alg_type == "ShannonEntropy":
             player_state.trust_metric = self.trust_metric 
@@ -805,10 +808,6 @@ class PlayerState(object):
 
         elif alg_type == "Vulnerability+Freq": 
             player_state.trust_metric = self.trust_metric  
-
-        # angel: might need to be elaborated .. 
-        # player_state.trust_metric = self.trust_metric 
-        # player_state.trust_relevant_info = self.trust_relevant_info
 
         return player_state # PlayerState(self.position, self.orientation, new_obj)
 
@@ -836,7 +835,8 @@ class PlayerState(object):
             "alpha_adversary": self.alpha_adversary, 
             "beta_adversary": self.beta_adversary, 
             "alpha_lazy": self.alpha_lazy, 
-            "beta_lazy": self.beta_lazy
+            "beta_lazy": self.beta_lazy, 
+            "trust_metric": self.trust_metric
             }
         
         elif alg_type == "Travos":
@@ -847,20 +847,17 @@ class PlayerState(object):
             "alpha_adversary": self.alpha_adversary, 
             "beta_adversary": self.beta_adversary, 
             "alpha_lazy": self.alpha_lazy, 
-            "beta_lazy": self.beta_lazy
+            "beta_lazy": self.beta_lazy, 
+            "trust_metric": self.trust_metric
             }
 
         elif alg_type == "ShannonEntropy":
-            print('not implemented yet')
-            pass 
-            # return {
-            # "position": self.position,
-            # "orientation": self.orientation,
-            # "held_object": self.held_object.to_dict() if self.held_object is not None else None,
-            # "beta_adversary": self.beta_adversary, 
-            # "alpha_lazy": self.alpha_lazy, 
-            # "beta_lazy": self.beta_lazy
-            # }
+            return {
+            "position": self.position,
+            "orientation": self.orientation,
+            "held_object": self.held_object.to_dict() if self.held_object is not None else None,
+            "trust_metric": self.trust_metric
+            }
         
         elif alg_type == "Vulnerability" or alg_type == "Vulnerability+Freq":
             
@@ -1448,6 +1445,7 @@ class OvercookedGridworld(object):
         did_lazy_action = False 
 
         relevant_trust_info = new_state.players[0].trust_relevant_info
+        relevant_trust_info["total_reward_potential"] = None 
 
         if is_close_enough(rl_agent_pos, adv_agent_pos):
             relevant_trust_info["interaction_occured"] = True 
@@ -1672,7 +1670,9 @@ class OvercookedGridworld(object):
         elif include_trust and player_idx == 1 and index != None: 
             new_state.players[0].update_bayes("lazy", did_lazy_action)
             relevant_trust_info["total_reward_gained"] = shaped_reward[0]
-            relevant_trust_info["total_reward_potential"] = shaped_reward[0]
+
+            if relevant_trust_info["total_reward_potential"] == None: 
+                relevant_trust_info["total_reward_potential"] = shaped_reward[0]
 
             print(f'updated relevant trust info: {relevant_trust_info}')
             new_state.players[0].update_trust_info(relevant_trust_info)
@@ -2691,16 +2691,26 @@ class OvercookedGridworld(object):
             if include_trust: 
                 # Add bayes features here 
                 if alg_type == "Travos" or alg_type == "multiTravos": 
-                    if (multi_dim_trust): 
-                        all_features["p{}_lazy_trust".format(i)] = player.trust_score_lazy
-                        all_features["p{}_uncert_lazy".format(i)] = player.uncertainty_lazy
-                        # all_features["p{}_lazy_alpha".format(i)] = [player.alpha_lazy]
-                        # all_features["p{}_lazy_beta".format(i)] = [player.beta_lazy]
                     
-                    all_features["p{}_adv_trust".format(i)] = player.trust_score_adversary
-                    all_features["p{}_uncert_adver".format(i)] = player.uncertainty_adversary
-                    # all_features["p{}_adv_alpha".format(i)] = [player.alpha_adversary]
-                    # all_features["p{}_adv_beta".format(i)] = [player.beta_adversary]
+                    if not sliding_window: 
+                        if (multi_dim_trust): 
+                            all_features["p{}_lazy_trust".format(i)] = player.trust_score_lazy
+                            all_features["p{}_uncert_lazy".format(i)] = player.uncertainty_lazy
+                            # all_features["p{}_lazy_alpha".format(i)] = [player.alpha_lazy]
+                            # all_features["p{}_lazy_beta".format(i)] = [player.beta_lazy]
+                        
+                        all_features["p{}_adv_trust".format(i)] = player.trust_score_adversary
+                        all_features["p{}_uncert_adver".format(i)] = player.uncertainty_adversary
+                        # all_features["p{}_adv_alpha".format(i)] = [player.alpha_adversary]
+                        # all_features["p{}_adv_beta".format(i)] = [player.beta_adversary]
+
+                    else: 
+                        if (multi_dim_trust): 
+                            all_features["p{}_lazy_trust".format(i)] = player.trust_metric.lazy_trust
+                            all_features["p{}_uncert_lazy".format(i)] = player.trust_metric.lazy_uncert
+                        
+                        all_features["p{}_adv_trust".format(i)] = player.trust_metric.adversarial_trust
+                        all_features["p{}_uncert_adver".format(i)] = player.trust_metric.adversarial_uncert
 
                 elif alg_type == "ShannonEntropy":
                     all_features["p{}_entropy".format(i)] = player.trust_metric.entropy
