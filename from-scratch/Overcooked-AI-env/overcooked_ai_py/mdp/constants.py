@@ -23,6 +23,7 @@ if alg_type == "baseline":
 elif alg_type == "Vulnerability" or alg_type == "ShannonEntropy" or alg_type == "Vulnerability+Freq":
     include_trust = True 
     multi_dim_trust = False
+    sliding_window = True # by default, and only one implemented so far 
 elif alg_type == "Travos": 
     include_thres = False 
     alg_type += f"_disc_{discretize_trust}_adapt_{adaptive_discretize}_window_{sliding_window}"
