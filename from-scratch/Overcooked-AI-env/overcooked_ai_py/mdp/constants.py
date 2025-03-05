@@ -1,6 +1,6 @@
 import math 
 
-alg_type = "ShannonEntropy" # "multiTravos" # [multiTravos, baseline, Travos]
+alg_type = "baseline" # "multiTravos" # [multiTravos, baseline, Travos]
 lazy_agent = True
 adv_agent = False 
 both = False 

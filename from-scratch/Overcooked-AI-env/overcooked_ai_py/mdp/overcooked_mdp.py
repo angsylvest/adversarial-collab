@@ -648,7 +648,7 @@ class PlayerState(object):
 
         else: # this is assuming baseline 
             self.trust_metric = None  
-            print("Not using trust metric - verify that this is correct")
+            # print("Not using trust metric - verify that this is correct")
 
         assert self.orientation in Direction.ALL_DIRECTIONS
         if self.held_object is not None:
