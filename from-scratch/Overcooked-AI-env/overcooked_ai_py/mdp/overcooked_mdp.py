@@ -1673,13 +1673,10 @@ class OvercookedGridworld(object):
 
             if relevant_trust_info["total_reward_potential"] == None: 
                 relevant_trust_info["total_reward_potential"] = shaped_reward[0]
-
-            print(f'updated relevant trust info: {relevant_trust_info}')
+            # print(f'updated relevant trust info: {relevant_trust_info}')
             new_state.players[0].update_trust_info(relevant_trust_info)
         
         player_states.append(new_state.players[0])
-
-
 
         return sparse_reward, shaped_reward, player_states
 
