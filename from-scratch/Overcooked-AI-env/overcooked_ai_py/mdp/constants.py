@@ -25,11 +25,11 @@ elif alg_type == "Vulnerability" or alg_type == "ShannonEntropy" or alg_type == 
     multi_dim_trust = False
 elif alg_type == "Travos": 
     include_thres = False 
-    alg_type += f"_disc_{discretize_trust}_adapt_{adaptive_discretize}"
+    alg_type += f"_disc_{discretize_trust}_adapt_{adaptive_discretize}_window_{sliding_window}"
     include_trust = True # True # Only TRAVOS
     multi_dim_trust = False # True # For multi-TRAVOS    
 else: 
-    alg_type += f"_disc_{discretize_trust}_adapt_{adaptive_discretize}_int_count_{include_thres}"
+    alg_type += f"_disc_{discretize_trust}_adapt_{adaptive_discretize}_int_count_{include_thres}_window_{sliding_window}"
     include_trust = True # True # Only TRAVOS
     multi_dim_trust = True # True # For multi-TRAVOS    
 
