@@ -3,9 +3,11 @@ from torch.autograd import Variable
 from torch.optim import Adam
 import torch.nn as nn
 
-from model.network import MLPNetwork, VAENetwork, BCQActorNetwork
+from model.network import MLPNetwork, VAENetwork, BCQActorNetwork, LSTMEncoder
 from model.utils.model import *
 from model.utils.noise import OUNoise
+
+from overcooked_ai_py.mdp.constants import *
 
 
 class DDPGAgent(nn.Module):
@@ -46,6 +48,12 @@ class DDPGAgent(nn.Module):
         self.target_critic = MLPNetwork(params.critic.obs_dim, 1,
                                         hidden_dim=self.hidden_dim,
                                         constrain_out=False)
+        
+        self.observation_encoder = LSTMEncoder(self.obs_dim, 64, # self.action_dim,
+                            hidden_dim=self.hidden_dim,
+                            constrain_out=constrain_out)
+        
+        self.hidden = self.observation_encoder.init_hidden()
 
         hard_update(self.target_policy, self.policy)
         hard_update(self.target_critic, self.critic)
@@ -60,6 +68,17 @@ class DDPGAgent(nn.Module):
 
         if obs.dim() == 1:
             obs = obs.unsqueeze(dim=0)
+
+        obs_embedding, hidden = self.observation_encoder(obs, hidden_state=self.hidden)
+        self.hidden = hidden
+
+        # mu, log_var, hidden = self.observation_encoder(obs, hidden_state=self.hidden)
+        # self.hidden = hidden
+        # obs_embedding = self.reparameterize(mu, log_var)
+
+        # if using observation encoder
+        if use_lstm: 
+            obs = torch.cat((obs, obs_embedding), dim=1)
 
         action = self.policy(obs)
 
@@ -76,6 +95,9 @@ class DDPGAgent(nn.Module):
             action = action.clamp(-1, 1)
 
         return action.detach().cpu().numpy()
+    
+    def reset_hidden(self):
+        self.hidden = self.observation_encoder.init_hidden()
 
     def reset_noise(self):
         self.exploration.reset()

@@ -1,6 +1,7 @@
 import math 
 
 alg_type = "baseline" # "multiTravos" # [multiTravos, baseline, Travos]
+use_lstm = False
 lazy_agent = True
 adv_agent = False 
 both = False 

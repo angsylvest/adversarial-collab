@@ -5,7 +5,7 @@ from utils.misc import soft_update
 
 from model.DDPGAgent import DDPGAgent
 from model.utils.model import *
-
+from overcooked_ai_py.mdp.constants import *
 
 class MADDPG(object):
 
@@ -40,6 +40,7 @@ class MADDPG(object):
     def reset_noise(self):
         for agent in self.agents:
             agent.reset_noise()
+            agent.reset_hidden()
 
     def act(self, observations, sample=False):
         observations = torch.Tensor(observations).to(self.device)
@@ -103,6 +104,19 @@ class MADDPG(object):
 
             actor_loss = -agent.critic(critic_in).mean()
             actor_loss += (policy_out ** 2).mean() * 1e-3  # Action regularize
+
+            if use_lstm: 
+                encoded_obs_seq, _ = agent.observation_encoder(obses[:, agent_i, :, :])  # pass sequence of observations
+                temporal_diff = encoded_obs_seq[:, 1:] - encoded_obs_seq[:, :-1]
+                temporal_loss = torch.mean(torch.norm(temporal_diff, dim=-1))
+                alpha = 0.1
+                actor_loss += alpha * temporal_loss
+
+                # kl-divergence loss 
+                # kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1).mean()
+                # beta = 0.01  # KL weight coefficient, tune as needed
+                # actor_loss += beta * kl_loss
+            
             actor_loss.backward()
             torch.nn.utils.clip_grad_norm_(agent.policy.parameters(), 0.5)
             agent.policy_optimizer.step()
