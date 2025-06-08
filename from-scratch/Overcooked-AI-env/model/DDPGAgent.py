@@ -57,7 +57,13 @@ class DDPGAgent(nn.Module):
 
         hard_update(self.target_policy, self.policy)
         hard_update(self.target_critic, self.critic)
-        self.policy_optimizer = Adam(self.policy.parameters(), lr=self.lr * 0.1)
+
+        if use_lstm: 
+            self.policy_optimizer = torch.optim.Adam(
+            list(self.policy.parameters()) + list(self.observation_encoder.parameters()), lr=self.lr)
+
+        else: 
+            self.policy_optimizer = Adam(self.policy.parameters(), lr=self.lr * 0.1)
         self.critic_optimizer = Adam(self.critic.parameters(), lr=self.lr)
 
         self.exploration = OUNoise(self.action_dim)
